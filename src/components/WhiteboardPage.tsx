@@ -71,37 +71,98 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
     }
 
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      console.log('✓ Speech recognition API detected');
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = false;
-      recognitionRef.current.lang = 'en-US';
 
-      recognitionRef.current.onresult = async (event: any) => {
-        const transcript = event.results[event.results.length - 1][0].transcript;
-        console.log('🎤 Voice recognized:', transcript);
-        setCurrentTranscript(transcript);
-        setStatusMessage('Processing your question...');
-        await handleUserMessage(transcript);
-      };
+      try {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = false;
+        recognitionRef.current.interimResults = true;
+        recognitionRef.current.lang = 'en-US';
+        recognitionRef.current.maxAlternatives = 1;
 
-      recognitionRef.current.onstart = () => {
-        console.log('🎤 Speech recognition started');
-        setStatusMessage('Listening... speak now');
-      };
+        recognitionRef.current.onresult = async (event: any) => {
+          console.log('🎤 Speech recognition result event:', event);
+          const last = event.results.length - 1;
+          const transcript = event.results[last][0].transcript;
+          const isFinal = event.results[last].isFinal;
+          const confidence = event.results[last][0].confidence;
 
-      recognitionRef.current.onend = () => {
-        console.log('🎤 Speech recognition ended');
-        if (isListening) {
+          console.log('🎤 Transcript:', { transcript, isFinal, confidence });
+
+          if (isFinal) {
+            setCurrentTranscript(transcript);
+            setStatusMessage('Processing your question...');
+            setIsListening(false);
+            await handleUserMessage(transcript);
+          } else {
+            setStatusMessage(`Listening: "${transcript}"`);
+          }
+        };
+
+        recognitionRef.current.onstart = () => {
+          console.log('🎤 Speech recognition started successfully');
+          setStatusMessage('Listening... speak now');
+        };
+
+        recognitionRef.current.onend = () => {
+          console.log('🎤 Speech recognition ended');
           setIsListening(false);
-        }
-      };
+          if (statusMessage.startsWith('Listening')) {
+            setStatusMessage('');
+          }
+        };
 
-      recognitionRef.current.onerror = (event: any) => {
-        console.error('❌ Speech recognition error:', event.error);
-        setStatusMessage(`Error: ${event.error}`);
-        setIsListening(false);
-      };
+        recognitionRef.current.onerror = (event: any) => {
+          console.error('❌ Speech recognition error details:', {
+            error: event.error,
+            message: event.message,
+            timeStamp: event.timeStamp,
+          });
+
+          let errorMessage = '';
+          switch (event.error) {
+            case 'network':
+              errorMessage = 'Network error. Check your internet connection or try again.';
+              console.error('Network error - Speech recognition requires internet for Chrome/Edge');
+              break;
+            case 'not-allowed':
+            case 'permission-denied':
+              errorMessage = 'Microphone permission denied. Please allow microphone access.';
+              console.error('Permission denied - User needs to grant microphone access');
+              break;
+            case 'no-speech':
+              errorMessage = 'No speech detected. Please try again.';
+              console.warn('No speech detected');
+              break;
+            case 'aborted':
+              errorMessage = 'Speech recognition aborted.';
+              console.warn('Recognition aborted');
+              break;
+            case 'audio-capture':
+              errorMessage = 'No microphone found. Please connect a microphone.';
+              console.error('Audio capture error - No microphone available');
+              break;
+            case 'service-not-allowed':
+              errorMessage = 'Speech service not allowed. Try HTTPS or check browser settings.';
+              console.error('Service not allowed - May need HTTPS');
+              break;
+            default:
+              errorMessage = `Speech error: ${event.error}`;
+              console.error('Unknown speech recognition error:', event.error);
+          }
+
+          setStatusMessage(errorMessage);
+          setIsListening(false);
+          setTimeout(() => setStatusMessage(''), 5000);
+        };
+
+        console.log('✓ Speech recognition configured successfully');
+      } catch (error) {
+        console.error('❌ Failed to initialize speech recognition:', error);
+      }
+    } else {
+      console.warn('⚠️ Speech recognition not supported in this browser');
     }
 
     return () => {
@@ -111,26 +172,67 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
     };
   }, [settings]);
 
-  const handleToggleListening = () => {
+  const handleToggleListening = async () => {
     if (!recognitionRef.current) {
-      alert('Speech recognition is not supported in your browser');
+      const message = 'Speech recognition is not supported in your browser. Try Chrome, Edge, or Safari.';
+      console.error('❌ Speech recognition not available');
+      setStatusMessage(message);
+      setTimeout(() => setStatusMessage(''), 5000);
       return;
     }
 
     if (isListening) {
       console.log('🔴 Stopping speech recognition');
-      recognitionRef.current.stop();
-      setIsListening(false);
-      setStatusMessage('');
-    } else {
-      console.log('🔴 Starting speech recognition');
       try {
-        recognitionRef.current.start();
-        setIsListening(true);
-        setCurrentTranscript('');
+        recognitionRef.current.stop();
+        setIsListening(false);
+        setStatusMessage('');
       } catch (error) {
-        console.error('❌ Failed to start recognition:', error);
-        setStatusMessage('Failed to start listening');
+        console.error('❌ Error stopping recognition:', error);
+        setIsListening(false);
+      }
+    } else {
+      console.log('🟢 Starting speech recognition...');
+      console.log('Browser info:', {
+        userAgent: navigator.userAgent,
+        language: navigator.language,
+        onLine: navigator.onLine,
+      });
+
+      if (!navigator.onLine) {
+        console.error('❌ No internet connection detected');
+        setStatusMessage('No internet connection. Speech recognition requires internet.');
+        setTimeout(() => setStatusMessage(''), 5000);
+        return;
+      }
+
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log('✓ Microphone access granted');
+
+        setCurrentTranscript('');
+        setIsListening(true);
+        recognitionRef.current.start();
+        console.log('✓ Speech recognition started');
+      } catch (error: any) {
+        console.error('❌ Failed to start recognition:', {
+          error,
+          name: error?.name,
+          message: error?.message,
+        });
+
+        let errorMessage = 'Failed to start listening.';
+        if (error?.name === 'NotAllowedError') {
+          errorMessage = 'Microphone access denied. Please allow microphone in browser settings.';
+        } else if (error?.name === 'NotFoundError') {
+          errorMessage = 'No microphone found. Please connect a microphone.';
+        } else if (error?.message) {
+          errorMessage = `Error: ${error.message}`;
+        }
+
+        setStatusMessage(errorMessage);
+        setIsListening(false);
+        setTimeout(() => setStatusMessage(''), 5000);
       }
     }
   };
@@ -140,40 +242,70 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   };
 
   const handleQuestionSubmit = async (questionText: string, imageUrl?: string) => {
+    console.log('📝 Question submitted:', { questionText, hasImage: !!imageUrl });
     setCurrentQuestion(questionText);
     setIsProcessing(true);
     setStatusMessage('Processing question...');
 
     try {
       if (!geminiRef.current || !runwareRef.current) {
-        console.error('Services not initialized');
-        setStatusMessage('Services not ready');
+        const missing = [];
+        if (!geminiRef.current) missing.push('Gemini');
+        if (!runwareRef.current) missing.push('Runware');
+        console.error('❌ Services not initialized:', missing.join(', '));
+        setStatusMessage(`Services not ready: ${missing.join(', ')}. Check API keys.`);
         return;
       }
 
       if (imageUrl) {
-        const imageAnalysis = await geminiRef.current.analyzeImage(imageUrl, questionText);
-        console.log('Image analysis:', imageAnalysis);
-        questionText = `${questionText}\n\nImage shows: ${imageAnalysis}`;
+        console.log('🖼️ Analyzing uploaded image...');
+        try {
+          const imageAnalysis = await geminiRef.current.analyzeImage(imageUrl, questionText);
+          console.log('✓ Image analysis complete:', imageAnalysis.substring(0, 100) + '...');
+          questionText = `${questionText}\n\nImage shows: ${imageAnalysis}`;
+        } catch (imageError: any) {
+          console.error('❌ Image analysis failed:', {
+            error: imageError,
+            message: imageError?.message,
+          });
+          setStatusMessage('Failed to analyze image, continuing without it...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
       }
 
       const whiteboardPrompt = `Create a clean whiteboard image showing this math problem in the top-left corner: "${questionText}". Use clear handwriting style text on a white background. Leave plenty of space below and to the right for work.`;
 
+      console.log('🎨 Generating whiteboard background...');
       setStatusMessage('Generating whiteboard...');
-      const newBackgroundUrl = await runwareRef.current.generateImage({
-        prompt: whiteboardPrompt,
-        width: 1024,
-        height: 768,
-      });
+      try {
+        const newBackgroundUrl = await runwareRef.current.generateImage({
+          prompt: whiteboardPrompt,
+          width: 1024,
+          height: 768,
+        });
+        console.log('✓ Whiteboard generated:', newBackgroundUrl);
+        setBackgroundImageUrl(newBackgroundUrl);
+      } catch (runwareError: any) {
+        console.error('❌ Runware generation failed:', {
+          error: runwareError,
+          message: runwareError?.message,
+          response: runwareError?.response,
+        });
+        setStatusMessage('Failed to generate whiteboard: ' + (runwareError?.message || 'Unknown error'));
+        throw runwareError;
+      }
 
-      setBackgroundImageUrl(newBackgroundUrl);
       await handleUserMessage(questionText);
-    } catch (error) {
-      console.error('Error processing question:', error);
-      setStatusMessage('Error: ' + (error as Error).message);
+    } catch (error: any) {
+      console.error('❌ Error processing question:', {
+        error,
+        message: error?.message,
+        stack: error?.stack,
+      });
+      setStatusMessage('Error: ' + (error?.message || 'Failed to process question'));
     } finally {
       setIsProcessing(false);
-      setTimeout(() => setStatusMessage(''), 3000);
+      setTimeout(() => setStatusMessage(''), 5000);
     }
   };
 
@@ -184,7 +316,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
       return;
     }
 
-    console.log('💬 Sending message to AI:', message);
+    console.log('💬 Sending message to AI:', message.substring(0, 100) + '...');
     setIsProcessing(true);
     setStatusMessage('AI is thinking...');
 
@@ -195,19 +327,30 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
 
       if (isSpeaking && elevenLabsRef.current) {
         console.log('🔊 Speaking response with voice:', settings.voice_name);
-        await elevenLabsRef.current.speak(response, settings.voice_id);
-        console.log('✓ Voice playback complete');
+        try {
+          await elevenLabsRef.current.speak(response, settings.voice_id);
+          console.log('✓ Voice playback complete');
+        } catch (voiceError: any) {
+          console.error('❌ Voice playback error:', {
+            error: voiceError,
+            message: voiceError?.message,
+          });
+          setStatusMessage('Voice playback failed: ' + (voiceError?.message || 'Unknown error'));
+        }
       } else if (isSpeaking && !elevenLabsRef.current) {
         console.warn('⚠️ Voice output disabled - ElevenLabs not initialized');
         setStatusMessage('Voice disabled - check API key');
       }
-
-    } catch (error) {
-      console.error('❌ Error processing message:', error);
-      setStatusMessage('Error: ' + (error as Error).message);
+    } catch (error: any) {
+      console.error('❌ Error processing message:', {
+        error,
+        message: error?.message,
+        stack: error?.stack,
+      });
+      setStatusMessage('Error: ' + (error?.message || 'Unknown error occurred'));
     } finally {
       setIsProcessing(false);
-      setTimeout(() => setStatusMessage(''), 3000);
+      setTimeout(() => setStatusMessage(''), 5000);
     }
   };
 
