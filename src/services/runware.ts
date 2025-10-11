@@ -60,20 +60,57 @@ export class RunwareService {
       }
 
       const data = await response.json();
-      console.log('🎨 Runware full response:', data);
+      console.log('🎨 Runware full response:', JSON.stringify(data, null, 2));
 
-      if (Array.isArray(data) && data.length > 0 && data[0].imageURL) {
-        console.log('✓ Runware: Image generated successfully');
-        return data[0].imageURL;
+      // Try multiple possible response formats
+      // Format 1: Array with imageURL
+      if (Array.isArray(data) && data.length > 0) {
+        if (data[0].imageURL) {
+          console.log('✓ Runware: Image generated successfully (imageURL)');
+          return data[0].imageURL;
+        }
+        if (data[0].imageSrc) {
+          console.log('✓ Runware: Image generated successfully (imageSrc)');
+          return data[0].imageSrc;
+        }
+        if (data[0].url) {
+          console.log('✓ Runware: Image generated successfully (url)');
+          return data[0].url;
+        }
       }
 
+      // Format 2: Direct object with image data
+      if (data.imageURL) {
+        console.log('✓ Runware: Image generated successfully (direct imageURL)');
+        return data.imageURL;
+      }
+
+      if (data.imageSrc) {
+        console.log('✓ Runware: Image generated successfully (direct imageSrc)');
+        return data.imageSrc;
+      }
+
+      // Format 3: Nested in data or result
+      if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+        const imageUrl = data.data[0].imageURL || data.data[0].imageSrc || data.data[0].url;
+        if (imageUrl) {
+          console.log('✓ Runware: Image generated successfully (nested)');
+          return imageUrl;
+        }
+      }
+
+      // Format 4: Legacy format
       if (data.images && data.images.length > 0) {
         console.log('✓ Runware: Image generated successfully (legacy format)');
-        return data.images[0].url;
+        return data.images[0].url || data.images[0].imageURL;
       }
 
-      console.error('❌ Runware: Unexpected response format:', data);
-      throw new Error('No image URL in response');
+      console.error('❌ Runware: Unexpected response format. Full response:', data);
+      console.error('Available keys:', Object.keys(data));
+      if (Array.isArray(data) && data.length > 0) {
+        console.error('First item keys:', Object.keys(data[0]));
+      }
+      throw new Error('No image URL in response. Check console for details.');
     } catch (error: any) {
       console.error('❌ Runware generateImage failed:', {
         error,
