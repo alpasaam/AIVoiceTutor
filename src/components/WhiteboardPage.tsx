@@ -2,10 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { Whiteboard } from './Whiteboard';
 import { QuestionInput } from './QuestionInput';
 import { VoiceControls } from './VoiceControls';
+import { AIContextWindow, AIContextContent } from './AIContextWindow';
 import { ElevenLabsService } from '../services/elevenlabs';
 import { AITutorService } from '../services/aiTutor';
 import { RunwareService } from '../services/runware';
 import { GeminiService } from '../services/gemini';
+import { ContextWindowService } from '../services/contextWindowService';
+import { supabase } from '../lib/supabase';
 
 interface UserSettings {
   voice_id: string;
@@ -27,12 +30,39 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
+  const [contextContent, setContextContent] = useState<AIContextContent | null>(null);
+  const [contextVisible, setContextVisible] = useState(false);
+  const [contextMinimized, setContextMinimized] = useState(true);
+  const [contextPosition, setContextPosition] = useState({ x: 40, y: 140 });
+  const [contextTransparency, setContextTransparency] = useState(1.0);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const elevenLabsRef = useRef<ElevenLabsService | null>(null);
   const aiTutorRef = useRef<AITutorService | null>(null);
   const runwareRef = useRef<RunwareService | null>(null);
   const geminiRef = useRef<GeminiService | null>(null);
   const recognitionRef = useRef<any>(null);
+  const contextServiceRef = useRef<ContextWindowService>(new ContextWindowService());
+  const positionUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const loadUserAndSettings = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        const contextSettings = await contextServiceRef.current.getOrCreateSettings(user.id);
+        setContextPosition({ x: contextSettings.x_position, y: contextSettings.y_position });
+        setContextMinimized(contextSettings.is_minimized);
+        setContextVisible(contextSettings.is_visible);
+        setContextTransparency(contextSettings.transparency_level);
+        if (contextSettings.last_shown_content) {
+          setContextContent(contextSettings.last_shown_content);
+        }
+      }
+    };
+
+    loadUserAndSettings();
+  }, []);
 
   useEffect(() => {
     const elevenLabsKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
@@ -322,6 +352,27 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
         setBackgroundImageUrl('');
       }
 
+      try {
+        setStatusMessage('Generating context information...');
+        const contextInfo = await geminiRef.current.generateContextInfo(questionText, imageUrl);
+        const newContextContent: AIContextContent = {
+          title: contextInfo.title,
+          blocks: contextInfo.blocks,
+          timestamp: Date.now(),
+        };
+        setContextContent(newContextContent);
+        setContextVisible(true);
+        setContextMinimized(false);
+
+        if (userId) {
+          await contextServiceRef.current.updateContent(userId, newContextContent);
+          await contextServiceRef.current.updateVisibility(userId, true);
+          await contextServiceRef.current.updateMinimized(userId, false);
+        }
+      } catch (contextError: any) {
+        console.error('❌ Failed to generate context info:', contextError);
+      }
+
       // Runware background generation disabled for now
       // Infrastructure kept in place for future use
       // const whiteboardPrompt = `Create a clean whiteboard image showing this math problem in the top-left corner: "${questionText}". Use clear handwriting style text on a white background. Leave plenty of space below and to the right for work.`;
@@ -392,9 +443,23 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   };
 
   const analysisTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const drawingActivityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleCanvasUpdate = async (canvasData: string) => {
     setCanvasDataUrl(canvasData);
+
+    if (contextVisible && !contextMinimized && contextContent) {
+      if (drawingActivityTimeoutRef.current) {
+        clearTimeout(drawingActivityTimeoutRef.current);
+      }
+
+      drawingActivityTimeoutRef.current = setTimeout(async () => {
+        setContextMinimized(true);
+        if (userId) {
+          await contextServiceRef.current.updateMinimized(userId, true);
+        }
+      }, 3000);
+    }
 
     if (analysisTimeoutRef.current) {
       clearTimeout(analysisTimeoutRef.current);
@@ -477,9 +542,38 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
     });
   };
 
+  const handleContextClose = async () => {
+    setContextVisible(false);
+    if (userId) {
+      await contextServiceRef.current.updateVisibility(userId, false);
+    }
+  };
+
+  const handleContextToggleMinimize = async () => {
+    const newMinimized = !contextMinimized;
+    setContextMinimized(newMinimized);
+    if (userId) {
+      await contextServiceRef.current.updateMinimized(userId, newMinimized);
+    }
+  };
+
+  const handleContextPositionChange = (x: number, y: number) => {
+    setContextPosition({ x, y });
+
+    if (positionUpdateTimeoutRef.current) {
+      clearTimeout(positionUpdateTimeoutRef.current);
+    }
+
+    positionUpdateTimeoutRef.current = setTimeout(async () => {
+      if (userId) {
+        await contextServiceRef.current.updatePosition(userId, x, y);
+      }
+    }, 500);
+  };
+
   return (
     <div className="h-screen flex flex-col relative bg-slate-50">
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         <Whiteboard
           onCanvasUpdate={handleCanvasUpdate}
           backgroundImageUrl={backgroundImageUrl}
@@ -488,6 +582,17 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
           isSpeaking={isSpeaking}
           onToggleListening={handleToggleListening}
           onToggleSpeaking={handleToggleSpeaking}
+        />
+
+        <AIContextWindow
+          content={contextContent}
+          isVisible={contextVisible}
+          isMinimized={contextMinimized}
+          position={contextPosition}
+          transparency={contextTransparency}
+          onClose={handleContextClose}
+          onToggleMinimize={handleContextToggleMinimize}
+          onPositionChange={handleContextPositionChange}
         />
       </div>
 
