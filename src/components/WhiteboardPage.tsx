@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { Whiteboard } from './Whiteboard';
 import { Whiteboard, WhiteboardRef } from './Whiteboard';
 import { QuestionInput } from './QuestionInput';
 import { ElevenLabsService } from '../services/elevenlabs';
@@ -14,8 +16,10 @@ interface UserSettings {
 
 interface WhiteboardPageProps {
   settings: UserSettings;
+  onBack: () => void;
 }
 
+export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
 async function isCanvasBlank(canvasDataUrl: string): Promise<boolean> {
   if (!canvasDataUrl || canvasDataUrl.length < 100) {
     console.log('🔍 Canvas check: Empty or too small');
@@ -376,6 +380,27 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
 
       if (isSpeaking && elevenLabsRef.current) {
         console.log('🔊 Speaking response with voice:', settings.voice_name);
+
+        // Stop listening while speaking to prevent feedback loop
+        const wasListening = isListening;
+        if (wasListening && recognitionRef.current) {
+          console.log('⏸️ Pausing speech recognition during voice output');
+          recognitionRef.current.stop();
+          setIsListening(false);
+        }
+
+        await elevenLabsRef.current.speak(response, settings.voice_id);
+        console.log('✓ Voice playback complete');
+
+        // Resume listening if it was active before
+        if (wasListening && recognitionRef.current) {
+          console.log('▶️ Resuming speech recognition');
+          try {
+            recognitionRef.current.start();
+            setIsListening(true);
+          } catch (error) {
+            console.error('Failed to resume recognition:', error);
+          }
         try {
           await elevenLabsRef.current.speak(response, settings.voice_id);
           console.log('✓ Voice playback complete');
@@ -493,6 +518,14 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
 
   return (
     <div className="h-screen flex flex-col relative bg-slate-50">
+      <button
+        onClick={onBack}
+        className="absolute top-4 left-4 z-50 flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg shadow-md border border-slate-200 transition"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span className="font-medium">Back</span>
+      </button>
+
       <div className="flex-1 overflow-hidden">
         <Whiteboard
           ref={whiteboardRef}
