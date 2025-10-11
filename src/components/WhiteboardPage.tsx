@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Whiteboard } from './Whiteboard';
+import { Whiteboard, WhiteboardRef } from './Whiteboard';
 import { QuestionInput } from './QuestionInput';
 import { VoiceControls } from './VoiceControls';
 import { ElevenLabsService } from '../services/elevenlabs';
@@ -77,6 +77,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   const runwareRef = useRef<RunwareService | null>(null);
   const geminiRef = useRef<GeminiService | null>(null);
   const recognitionRef = useRef<any>(null);
+  const whiteboardRef = useRef<WhiteboardRef>(null);
 
   useEffect(() => {
     const elevenLabsKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
@@ -287,8 +288,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   };
 
   const handleQuestionSubmit = async (questionText: string, imageUrl?: string) => {
-    const canvasIsBlank = await isCanvasBlank(canvasDataUrl);
-    console.log('📝 Question submitted:', { questionText, hasImage: !!imageUrl, hasCanvas: !canvasIsBlank, canvasDataLength: canvasDataUrl.length });
+    console.log('📝 Question submitted:', { questionText, hasImage: !!imageUrl });
     setCurrentQuestion(questionText);
     setIsProcessing(true);
     setStatusMessage('Processing your question and whiteboard...');
@@ -300,24 +300,24 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
         return;
       }
 
-      let compositeCanvasUrl: string | undefined = undefined;
+      let whiteboardScreenshot: string | undefined = undefined;
 
-      if (!canvasIsBlank) {
-        console.log('🖼️ Canvas has content, creating composite image...');
+      if (whiteboardRef.current) {
+        console.log('📸 Capturing complete whiteboard screenshot...');
         try {
-          if (backgroundImageUrl) {
-            compositeCanvasUrl = await createCombinedImage(backgroundImageUrl, canvasDataUrl);
-            console.log('✓ Composite image created (background + canvas)');
+          whiteboardScreenshot = await whiteboardRef.current.captureScreenshot();
+          if (whiteboardScreenshot && whiteboardScreenshot.length > 100) {
+            console.log('✓ Whiteboard screenshot captured:', whiteboardScreenshot.length, 'bytes');
           } else {
-            compositeCanvasUrl = canvasDataUrl;
-            console.log('✓ Using canvas only (no background)');
+            console.log('ℹ️ Whiteboard appears empty');
+            whiteboardScreenshot = undefined;
           }
         } catch (error: any) {
-          console.error('❌ Failed to create composite canvas:', error);
-          compositeCanvasUrl = canvasDataUrl;
+          console.error('❌ Failed to capture whiteboard screenshot:', error);
+          whiteboardScreenshot = undefined;
         }
       } else {
-        console.log('ℹ️ Canvas is blank, skipping canvas analysis');
+        console.warn('⚠️ Whiteboard ref not available');
       }
 
       if (imageUrl) {
@@ -336,7 +336,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
         }
       }
 
-      await handleUserMessage(questionText, compositeCanvasUrl);
+      await handleUserMessage(questionText, whiteboardScreenshot);
     } catch (error: any) {
       console.error('❌ Error processing question:', {
         error,
@@ -492,6 +492,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
     <div className="h-screen flex flex-col relative bg-slate-50">
       <div className="flex-1 overflow-hidden">
         <Whiteboard
+          ref={whiteboardRef}
           onCanvasUpdate={handleCanvasUpdate}
           backgroundImageUrl={backgroundImageUrl}
           isListening={isListening}

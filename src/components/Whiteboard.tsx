@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useImperativeHandle, forwardRef } from 'react';
 import { Mic, MicOff, Eraser, Pencil, Trash2, Volume2, VolumeX } from 'lucide-react';
 
 interface WhiteboardProps {
@@ -10,21 +10,71 @@ interface WhiteboardProps {
   onToggleSpeaking?: () => void;
 }
 
-export function Whiteboard({
+export interface WhiteboardRef {
+  captureScreenshot: () => Promise<string>;
+}
+
+export const Whiteboard = forwardRef<WhiteboardRef, WhiteboardProps>(({
   onCanvasUpdate,
   backgroundImageUrl,
   isListening = false,
   isSpeaking = false,
   onToggleListening,
   onToggleSpeaking
-}: WhiteboardProps) {
+}, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const backgroundRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [tool, setTool] = useState<'pencil' | 'eraser'>('pencil');
   const [color, setColor] = useState('#1e40af');
   const [lineWidth, setLineWidth] = useState(3);
   const lastPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    captureScreenshot: async (): Promise<string> => {
+      console.log('📸 Capturing whiteboard screenshot...');
+      const canvas = canvasRef.current;
+      const backgroundImg = backgroundRef.current;
+
+      if (!canvas) {
+        console.error('❌ Canvas ref not available');
+        return '';
+      }
+
+      const compositeCanvas = document.createElement('canvas');
+      const ctx = compositeCanvas.getContext('2d');
+
+      if (!ctx) {
+        console.error('❌ Could not get composite canvas context');
+        return '';
+      }
+
+      const rect = canvas.getBoundingClientRect();
+      compositeCanvas.width = rect.width;
+      compositeCanvas.height = rect.height;
+
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, compositeCanvas.width, compositeCanvas.height);
+
+      if (backgroundImg && backgroundImageUrl) {
+        console.log('📸 Drawing background image...');
+        try {
+          ctx.drawImage(backgroundImg, 0, 0, compositeCanvas.width, compositeCanvas.height);
+        } catch (error) {
+          console.error('❌ Failed to draw background:', error);
+        }
+      }
+
+      console.log('📸 Drawing canvas overlay...');
+      ctx.drawImage(canvas, 0, 0, compositeCanvas.width, compositeCanvas.height);
+
+      const screenshot = compositeCanvas.toDataURL('image/png');
+      console.log('✓ Screenshot captured, size:', screenshot.length);
+
+      return screenshot;
+    }
+  }));
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -226,4 +276,4 @@ export function Whiteboard({
       </div>
     </div>
   );
-}
+});
