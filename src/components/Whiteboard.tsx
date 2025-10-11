@@ -256,12 +256,14 @@ useEffect(() => {
             ref={backgroundRef}
             src={backgroundImageUrl || textBackgroundUrl}
             alt="Whiteboard background"
-            className="absolute inset-0 w-full h-full pointer-events-none"
+            className="absolute pointer-events-none"
             style={{
-              objectFit: 'none',
-              objectPosition: 'top left',
-              maxWidth: '60%',
-              maxHeight: '40%',
+              top: 0,
+              left: 0,
+              width: 'auto',
+              height: 'auto',
+              maxWidth: '100%',
+              maxHeight: '100%',
             }}
           />
         )}
