@@ -63,7 +63,7 @@ async function isCanvasBlank(canvasDataUrl: string): Promise<boolean> {
   });
 }
 
-export function WhiteboardPage({ settings }: WhiteboardPageProps) {
+export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(true);
   const [canvasDataUrl, setCanvasDataUrl] = useState<string>('');
