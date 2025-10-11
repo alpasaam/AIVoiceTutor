@@ -416,27 +416,27 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
           setStatusMessage('Failed to analyze image, continuing without it...');
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
-      }
 
-      try {
-        setStatusMessage('Generating context information...');
-        const contextInfo = await geminiRef.current.generateContextInfo(questionText, imageUrl);
-        const newContextContent: AIContextContent = {
-          title: contextInfo.title,
-          blocks: contextInfo.blocks,
-          timestamp: Date.now(),
-        };
-        setContextContent(newContextContent);
-        setContextVisible(true);
-        setContextMinimized(false);
+        try {
+          setStatusMessage('Generating context information...');
+          const contextInfo = await geminiRef.current.generateContextInfo(questionText, imageUrl);
+          const newContextContent: AIContextContent = {
+            title: contextInfo.title,
+            blocks: contextInfo.blocks,
+            timestamp: Date.now(),
+          };
+          setContextContent(newContextContent);
+          setContextVisible(true);
+          setContextMinimized(false);
 
-        if (userId) {
-          await contextServiceRef.current.updateContent(userId, newContextContent);
-          await contextServiceRef.current.updateVisibility(userId, true);
-          await contextServiceRef.current.updateMinimized(userId, false);
+          if (userId) {
+            await contextServiceRef.current.updateContent(userId, newContextContent);
+            await contextServiceRef.current.updateVisibility(userId, true);
+            await contextServiceRef.current.updateMinimized(userId, false);
+          }
+        } catch (contextError: any) {
+          console.error('❌ Failed to generate context info:', contextError);
         }
-      } catch (contextError: any) {
-        console.error('❌ Failed to generate context info:', contextError);
       }
 
       await handleUserMessage(questionText, whiteboardScreenshot);
