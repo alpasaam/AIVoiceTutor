@@ -12,7 +12,12 @@ export class ElevenLabsService {
   private apiKey: string;
 
   constructor(apiKey: string) {
-    this.apiKey = apiKey;
+    this.apiKey = apiKey.trim();
+    console.log('🔑 ElevenLabs API key loaded:', {
+      length: this.apiKey.length,
+      start: this.apiKey.substring(0, 10) + '...',
+      hasWhitespace: apiKey !== apiKey.trim(),
+    });
   }
 
   async textToSpeech({ text, voiceId }: TextToSpeechOptions): Promise<Blob> {
@@ -44,8 +49,19 @@ export class ElevenLabsService {
           status: response.status,
           statusText: response.statusText,
           errorText,
+          apiKeyLength: this.apiKey.length,
+          apiKeyStart: this.apiKey.substring(0, 10) + '...',
         });
-        throw new Error(`ElevenLabs API error (${response.status}): ${response.statusText}`);
+
+        if (response.status === 401) {
+          console.error('🔐 Authentication failed. Common causes:');
+          console.error('1. API key is invalid or expired');
+          console.error('2. ElevenLabs account needs verification');
+          console.error('3. Free tier quota exceeded');
+          console.error('4. Try regenerating your API key at: https://elevenlabs.io/app/settings/api-keys');
+        }
+
+        throw new Error(`ElevenLabs API error (${response.status}): ${response.statusText} - ${errorText}`);
       }
 
       const blob = await response.blob();
