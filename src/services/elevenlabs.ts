@@ -1,3 +1,5 @@
+import { sanitizeTextForSpeech } from '../utils/textSanitizer';
+
 interface ElevenLabsConfig {
   apiKey: string;
   voiceId: string;
@@ -21,7 +23,14 @@ export class ElevenLabsService {
   }
 
   async textToSpeech({ text, voiceId }: TextToSpeechOptions): Promise<Blob> {
-    console.log('🔊 ElevenLabs: Converting text to speech...', { voiceId, textLength: text.length });
+    const sanitizedText = sanitizeTextForSpeech(text);
+    console.log('🔊 ElevenLabs: Converting text to speech...', {
+      voiceId,
+      originalLength: text.length,
+      sanitizedLength: sanitizedText.length
+    });
+    console.log('📝 Original text:', text.substring(0, 100) + '...');
+    console.log('✨ Sanitized text:', sanitizedText.substring(0, 100) + '...');
     try {
       const response = await fetch(
         `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
@@ -33,7 +42,7 @@ export class ElevenLabsService {
             'xi-api-key': this.apiKey,
           },
           body: JSON.stringify({
-            text,
+            text: sanitizedText,
             model_id: 'eleven_monolingual_v1',
             voice_settings: {
               stability: 0.5,

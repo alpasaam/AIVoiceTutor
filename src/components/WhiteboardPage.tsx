@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Whiteboard } from './Whiteboard';
+import { ArrowLeft } from 'lucide-react';
+import { Whiteboard, WhiteboardRef } from './Whiteboard';
 import { QuestionInput } from './QuestionInput';
 import { VoiceControls } from './VoiceControls';
 import { AIContextWindow, AIContextContent } from './AIContextWindow';
@@ -18,9 +19,55 @@ interface UserSettings {
 
 interface WhiteboardPageProps {
   settings: UserSettings;
+  onBack: () => void;
 }
 
-export function WhiteboardPage({ settings }: WhiteboardPageProps) {
+async function isCanvasBlank(canvasDataUrl: string): Promise<boolean> {
+  if (!canvasDataUrl || canvasDataUrl.length < 100) {
+    console.log('🔍 Canvas check: Empty or too small');
+    return true;
+  }
+
+  return new Promise<boolean>((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        console.log('🔍 Canvas check: No context available');
+        resolve(true);
+        return;
+      }
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const pixels = imageData.data;
+
+      let hasNonTransparentPixel = false;
+      for (let i = 3; i < pixels.length; i += 4) {
+        if (pixels[i] > 0) {
+          hasNonTransparentPixel = true;
+          break;
+        }
+      }
+
+      console.log('🔍 Canvas check:', hasNonTransparentPixel ? 'HAS CONTENT' : 'BLANK');
+      resolve(!hasNonTransparentPixel);
+    };
+
+    img.onerror = () => {
+      console.error('🔍 Canvas check: Failed to load image');
+      resolve(true);
+    };
+
+    img.src = canvasDataUrl;
+  });
+}
+
+export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(true);
   const [canvasDataUrl, setCanvasDataUrl] = useState<string>('');
@@ -36,6 +83,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   const [contextPosition, setContextPosition] = useState({ x: 40, y: 140 });
   const [contextTransparency, setContextTransparency] = useState(1.0);
   const [userId, setUserId] = useState<string | null>(null);
+  const [aiResponse, setAiResponse] = useState('');
 
   const elevenLabsRef = useRef<ElevenLabsService | null>(null);
   const aiTutorRef = useRef<AITutorService | null>(null);
@@ -63,6 +111,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
 
     loadUserAndSettings();
   }, []);
+  const whiteboardRef = useRef<WhiteboardRef>(null);
 
   useEffect(() => {
     const elevenLabsKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
@@ -151,9 +200,9 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
           if (isFinal || !recognitionRef.current.interimResults) {
             // Process final result OR if interim results are disabled, process any result
             setCurrentTranscript(transcript);
-            setStatusMessage('Processing your question...');
+            setStatusMessage('Processing your question and whiteboard...');
             setIsListening(false);
-            await handleUserMessage(transcript);
+            await handleQuestionSubmit(transcript);
           } else {
             // Show interim results
             setStatusMessage(`Listening: "${transcript}"`);
@@ -324,13 +373,33 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
     setCurrentQuestion(questionText);
     setCurrentQuestionText(questionText);
     setIsProcessing(true);
-    setStatusMessage('Processing question...');
+    setStatusMessage('Processing your question and whiteboard...');
 
     try {
       if (!geminiRef.current) {
         console.error('❌ Gemini service not initialized');
         setStatusMessage('Gemini service not ready. Check API key.');
         return;
+      }
+
+      let whiteboardScreenshot: string | undefined = undefined;
+
+      if (whiteboardRef.current) {
+        console.log('📸 Capturing complete whiteboard screenshot...');
+        try {
+          whiteboardScreenshot = await whiteboardRef.current.captureScreenshot();
+          if (whiteboardScreenshot && whiteboardScreenshot.length > 100) {
+            console.log('✓ Whiteboard screenshot captured:', whiteboardScreenshot.length, 'bytes');
+          } else {
+            console.log('ℹ️ Whiteboard appears empty');
+            whiteboardScreenshot = undefined;
+          }
+        } catch (error: any) {
+          console.error('❌ Failed to capture whiteboard screenshot:', error);
+          whiteboardScreenshot = undefined;
+        }
+      } else {
+        console.warn('⚠️ Whiteboard ref not available');
       }
 
       if (imageUrl) {
@@ -373,17 +442,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
         console.error('❌ Failed to generate context info:', contextError);
       }
 
-      // Runware background generation disabled for now
-      // Infrastructure kept in place for future use
-      // const whiteboardPrompt = `Create a clean whiteboard image showing this math problem in the top-left corner: "${questionText}". Use clear handwriting style text on a white background. Leave plenty of space below and to the right for work.`;
-      // const newBackgroundUrl = await runwareRef.current.generateImage({
-      //   prompt: whiteboardPrompt,
-      //   width: 1024,
-      //   height: 768,
-      // });
-      // setBackgroundImageUrl(newBackgroundUrl);
-
-      await handleUserMessage(questionText);
+      await handleUserMessage(questionText, whiteboardScreenshot);
     } catch (error: any) {
       console.error('❌ Error processing question:', {
         error,
@@ -397,37 +456,59 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
     }
   };
 
-  const handleUserMessage = async (message: string, imageUrl?: string) => {
+  const handleUserMessage = async (message: string, canvasImageUrl?: string) => {
     if (!aiTutorRef.current || !settings) {
       console.error('❌ AI tutor not initialized');
       setStatusMessage('AI tutor not ready');
       return;
     }
 
-    console.log('💬 Sending message to AI:', message.substring(0, 100) + '...');
+    console.log('💬 Sending message to AI:', {
+      message: message.substring(0, 100) + '...',
+      hasCanvasImage: !!canvasImageUrl,
+      canvasImageLength: canvasImageUrl?.length || 0,
+      canvasImagePreview: canvasImageUrl?.substring(0, 50)
+    });
     setIsProcessing(true);
-    setStatusMessage('AI is thinking...');
+    setStatusMessage('AI is analyzing your question and whiteboard...');
 
     try {
-      const response = await aiTutorRef.current.getResponse(message, imageUrl);
+      console.log('📤 Calling aiTutorRef.current.getResponse with canvas image:', !!canvasImageUrl);
+      const response = await aiTutorRef.current.getResponse(message, canvasImageUrl);
+      console.log('📥 Response received from AI');
       console.log('🤖 AI response received:', response.substring(0, 100) + '...');
+      setAiResponse(response);
       setStatusMessage('Generating voice response...');
 
       if (isSpeaking && elevenLabsRef.current) {
         console.log('🔊 Speaking response with voice:', settings.voice_name);
-        try {
-          await elevenLabsRef.current.speak(response, settings.voice_id);
-          console.log('✓ Voice playback complete');
-        } catch (voiceError: any) {
-          console.error('❌ Voice playback error:', {
-            error: voiceError,
-            message: voiceError?.message,
-          });
-          setStatusMessage('Voice playback failed: ' + (voiceError?.message || 'Unknown error'));
+
+        // Stop listening while speaking to prevent feedback loop
+        const wasListening = isListening;
+        if (wasListening && recognitionRef.current) {
+          console.log('⏸️ Pausing speech recognition during voice output');
+          recognitionRef.current.stop();
+          setIsListening(false);
+        }
+
+        await elevenLabsRef.current.speak(response, settings.voice_id);
+        console.log('✓ Voice playback complete');
+
+        // Resume listening if it was active before
+        if (wasListening && recognitionRef.current) {
+          console.log('▶️ Resuming speech recognition');
+          try {
+            recognitionRef.current.start();
+            setIsListening(true);
+          } catch (error) {
+            console.error('Failed to resume recognition:', error);
+          }
         }
       } else if (isSpeaking && !elevenLabsRef.current) {
         console.warn('⚠️ Voice output disabled - ElevenLabs not initialized');
         setStatusMessage('Voice disabled - check API key');
+      } else if (!isSpeaking) {
+        setStatusMessage('');
       }
     } catch (error: any) {
       console.error('❌ Error processing message:', {
@@ -574,7 +655,17 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   return (
     <div className="h-screen flex flex-col relative bg-slate-50">
       <div className="flex-1 overflow-hidden relative">
+      <button
+        onClick={onBack}
+        className="absolute top-4 left-4 z-50 flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg shadow-md border border-slate-200 transition"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span className="font-medium">Back</span>
+      </button>
+
+      <div className="flex-1 overflow-hidden">
         <Whiteboard
+          ref={whiteboardRef}
           onCanvasUpdate={handleCanvasUpdate}
           backgroundImageUrl={backgroundImageUrl}
           questionText={currentQuestionText}
@@ -596,24 +687,37 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
         />
       </div>
 
-      <QuestionInput onSubmit={handleQuestionSubmit} disabled={isProcessing} />
+      <QuestionInput
+        onSubmit={handleQuestionSubmit}
+        disabled={isProcessing}
+        isListening={isListening}
+        isSpeaking={isSpeaking}
+        onToggleListening={handleToggleListening}
+        onToggleSpeaking={handleToggleSpeaking}
+      />
 
-      {(isProcessing || statusMessage || currentTranscript) && (
-        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-50">
-          <div className="bg-white px-6 py-4 rounded-lg shadow-xl border border-slate-200 min-w-[300px]">
+      {(isProcessing || statusMessage || currentTranscript || aiResponse) && (
+        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-50 max-w-2xl w-full px-4">
+          <div className="bg-white px-6 py-4 rounded-lg shadow-xl border border-slate-200">
             {currentTranscript && (
-              <div className="mb-2">
+              <div className="mb-3">
                 <p className="text-xs text-slate-500 mb-1">You said:</p>
                 <p className="text-slate-800 font-medium">{currentTranscript}</p>
               </div>
             )}
             {statusMessage && (
-              <p className="text-blue-600 font-medium flex items-center gap-2">
+              <p className="text-blue-600 font-medium flex items-center gap-2 mb-3">
                 {isProcessing && (
                   <span className="inline-block w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
                 )}
                 {statusMessage}
               </p>
+            )}
+            {aiResponse && !isSpeaking && (
+              <div className="border-t border-slate-200 pt-3">
+                <p className="text-xs text-slate-500 mb-1">AI Response:</p>
+                <p className="text-slate-800 whitespace-pre-wrap">{aiResponse}</p>
+              </div>
             )}
           </div>
         </div>

@@ -1,5 +1,5 @@
-import { useRef, useEffect, useState } from 'react';
-import { Mic, MicOff, Eraser, Pencil, Trash2, Volume2, VolumeX } from 'lucide-react';
+import { useRef, useEffect, useState, useImperativeHandle, forwardRef } from 'react';
+import { Eraser, Pencil, Trash2 } from 'lucide-react';
 
 interface WhiteboardProps {
   onCanvasUpdate?: (canvasDataUrl: string) => void;
@@ -11,7 +11,11 @@ interface WhiteboardProps {
   onToggleSpeaking?: () => void;
 }
 
-export function Whiteboard({
+export interface WhiteboardRef {
+  captureScreenshot: () => Promise<string>;
+}
+
+export const Whiteboard = forwardRef<WhiteboardRef, WhiteboardProps>(({
   onCanvasUpdate,
   backgroundImageUrl,
   questionText,
@@ -19,9 +23,10 @@ export function Whiteboard({
   isSpeaking = false,
   onToggleListening,
   onToggleSpeaking
-}: WhiteboardProps) {
+}, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const backgroundRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [textBackgroundUrl, setTextBackgroundUrl] = useState<string>('');
   const [tool, setTool] = useState<'pencil' | 'eraser'>('pencil');
@@ -71,6 +76,50 @@ useEffect(() => {
       setTextBackgroundUrl('');
     }
   }, [questionText, backgroundImageUrl]);
+  useImperativeHandle(ref, () => ({
+    captureScreenshot: async (): Promise<string> => {
+      console.log('📸 Capturing whiteboard screenshot...');
+      const canvas = canvasRef.current;
+      const backgroundImg = backgroundRef.current;
+
+      if (!canvas) {
+        console.error('❌ Canvas ref not available');
+        return '';
+      }
+
+      const compositeCanvas = document.createElement('canvas');
+      const ctx = compositeCanvas.getContext('2d');
+
+      if (!ctx) {
+        console.error('❌ Could not get composite canvas context');
+        return '';
+      }
+
+      const rect = canvas.getBoundingClientRect();
+      compositeCanvas.width = rect.width;
+      compositeCanvas.height = rect.height;
+
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, compositeCanvas.width, compositeCanvas.height);
+
+      if (backgroundImg && backgroundImageUrl) {
+        console.log('📸 Drawing background image...');
+        try {
+          ctx.drawImage(backgroundImg, 0, 0, compositeCanvas.width, compositeCanvas.height);
+        } catch (error) {
+          console.error('❌ Failed to draw background:', error);
+        }
+      }
+
+      console.log('📸 Drawing canvas overlay...');
+      ctx.drawImage(canvas, 0, 0, compositeCanvas.width, compositeCanvas.height);
+
+      const screenshot = compositeCanvas.toDataURL('image/png');
+      console.log('✓ Screenshot captured, size:', screenshot.length);
+
+      return screenshot;
+    }
+  }));
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -211,34 +260,6 @@ useEffect(() => {
           </div>
 
           <div className="flex items-center space-x-2">
-            {onToggleSpeaking && (
-              <button
-                onClick={onToggleSpeaking}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition ${
-                  isSpeaking
-                    ? 'bg-green-600 text-white hover:bg-green-700'
-                    : 'bg-slate-600 text-white hover:bg-slate-700'
-                }`}
-              >
-                {isSpeaking ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                <span>{isSpeaking ? 'Voice On' : 'Voice Off'}</span>
-              </button>
-            )}
-
-            {onToggleListening && (
-              <button
-                onClick={onToggleListening}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition ${
-                  isListening
-                    ? 'bg-red-600 text-white hover:bg-red-700 animate-pulse'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-              >
-                {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                <span>{isListening ? 'Stop Listening' : 'Start Voice'}</span>
-              </button>
-            )}
-
             <button
               onClick={clearCanvas}
               className="flex items-center space-x-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg font-medium hover:bg-red-200 transition"
@@ -280,4 +301,4 @@ useEffect(() => {
       </div>
     </div>
   );
-}
+});
