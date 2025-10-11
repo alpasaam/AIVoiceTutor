@@ -21,11 +21,16 @@ function App() {
     setHasStarted(true);
   };
 
+  const handleBack = () => {
+    setHasStarted(false);
+    setSettings(null);
+  };
+
   if (!hasStarted || !settings) {
     return <LandingPage onStart={handleStart} />;
   }
 
-  return <WhiteboardPage settings={settings} />;
+  return <WhiteboardPage settings={settings} onBack={handleBack} />;
 }
 
 export default App;

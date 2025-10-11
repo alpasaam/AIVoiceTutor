@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { Whiteboard } from './Whiteboard';
 import { QuestionInput } from './QuestionInput';
 import { VoiceControls } from './VoiceControls';
@@ -15,9 +16,10 @@ interface UserSettings {
 
 interface WhiteboardPageProps {
   settings: UserSettings;
+  onBack: () => void;
 }
 
-export function WhiteboardPage({ settings }: WhiteboardPageProps) {
+export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(true);
   const [canvasElements, setCanvasElements] = useState<any[]>([]);
@@ -211,6 +213,14 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
 
   return (
     <div className="h-screen flex flex-col relative bg-slate-50">
+      <button
+        onClick={onBack}
+        className="absolute top-4 left-4 z-50 flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg shadow-md border border-slate-200 transition"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span className="font-medium">Back</span>
+      </button>
+
       <div className="flex-1 overflow-hidden">
         <Whiteboard
           onCanvasUpdate={handleCanvasUpdate}
