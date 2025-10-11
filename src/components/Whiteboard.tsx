@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useImperativeHandle, forwardRef } from 'react';
-import { Mic, MicOff, Eraser, Pencil, Trash2, Volume2, VolumeX } from 'lucide-react';
+import { Eraser, Pencil, Trash2 } from 'lucide-react';
 
 interface WhiteboardProps {
   onCanvasUpdate?: (canvasDataUrl: string) => void;
@@ -215,34 +215,6 @@ export const Whiteboard = forwardRef<WhiteboardRef, WhiteboardProps>(({
           </div>
 
           <div className="flex items-center space-x-2">
-            {onToggleSpeaking && (
-              <button
-                onClick={onToggleSpeaking}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition ${
-                  isSpeaking
-                    ? 'bg-green-600 text-white hover:bg-green-700'
-                    : 'bg-slate-600 text-white hover:bg-slate-700'
-                }`}
-              >
-                {isSpeaking ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                <span>{isSpeaking ? 'Voice On' : 'Voice Off'}</span>
-              </button>
-            )}
-
-            {onToggleListening && (
-              <button
-                onClick={onToggleListening}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition ${
-                  isListening
-                    ? 'bg-red-600 text-white hover:bg-red-700 animate-pulse'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-              >
-                {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                <span>{isListening ? 'Stop Listening' : 'Start Voice'}</span>
-              </button>
-            )}
-
             <button
               onClick={clearCanvas}
               className="flex items-center space-x-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg font-medium hover:bg-red-200 transition"
