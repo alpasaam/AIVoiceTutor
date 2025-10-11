@@ -62,24 +62,32 @@ export class RunwareService {
       const data = await response.json();
       console.log('🎨 Runware full response:', JSON.stringify(data, null, 2));
 
-      // Try multiple possible response formats
-      // Format 1: Array with imageURL
+      // Format 1: Nested in data array (current Runware format)
+      if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+        const imageUrl = data.data[0].imageURL || data.data[0].imageSrc || data.data[0].url;
+        if (imageUrl) {
+          console.log('✓ Runware: Image generated successfully');
+          return imageUrl;
+        }
+      }
+
+      // Format 2: Direct array with imageURL
       if (Array.isArray(data) && data.length > 0) {
         if (data[0].imageURL) {
-          console.log('✓ Runware: Image generated successfully (imageURL)');
+          console.log('✓ Runware: Image generated successfully (array format)');
           return data[0].imageURL;
         }
         if (data[0].imageSrc) {
-          console.log('✓ Runware: Image generated successfully (imageSrc)');
+          console.log('✓ Runware: Image generated successfully (array imageSrc)');
           return data[0].imageSrc;
         }
         if (data[0].url) {
-          console.log('✓ Runware: Image generated successfully (url)');
+          console.log('✓ Runware: Image generated successfully (array url)');
           return data[0].url;
         }
       }
 
-      // Format 2: Direct object with image data
+      // Format 3: Direct object with image data
       if (data.imageURL) {
         console.log('✓ Runware: Image generated successfully (direct imageURL)');
         return data.imageURL;
@@ -88,15 +96,6 @@ export class RunwareService {
       if (data.imageSrc) {
         console.log('✓ Runware: Image generated successfully (direct imageSrc)');
         return data.imageSrc;
-      }
-
-      // Format 3: Nested in data or result
-      if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-        const imageUrl = data.data[0].imageURL || data.data[0].imageSrc || data.data[0].url;
-        if (imageUrl) {
-          console.log('✓ Runware: Image generated successfully (nested)');
-          return imageUrl;
-        }
       }
 
       // Format 4: Legacy format
