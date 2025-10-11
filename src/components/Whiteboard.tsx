@@ -4,6 +4,7 @@ import { Mic, MicOff, Eraser, Pencil, Trash2, Volume2, VolumeX } from 'lucide-re
 interface WhiteboardProps {
   onCanvasUpdate?: (canvasDataUrl: string) => void;
   backgroundImageUrl?: string;
+  questionText?: string;
   isListening?: boolean;
   isSpeaking?: boolean;
   onToggleListening?: () => void;
@@ -13,6 +14,7 @@ interface WhiteboardProps {
 export function Whiteboard({
   onCanvasUpdate,
   backgroundImageUrl,
+  questionText,
   isListening = false,
   isSpeaking = false,
   onToggleListening,
@@ -21,10 +23,54 @@ export function Whiteboard({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const backgroundRef = useRef<HTMLImageElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [textBackgroundUrl, setTextBackgroundUrl] = useState<string>('');
   const [tool, setTool] = useState<'pencil' | 'eraser'>('pencil');
   const [color, setColor] = useState('#1e40af');
   const [lineWidth, setLineWidth] = useState(3);
   const lastPosRef = useRef<{ x: number; y: number } | null>(null);
+
+useEffect(() => {
+    if (questionText && !backgroundImageUrl) {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = 1024;
+      tempCanvas.height = 768;
+      const ctx = tempCanvas.getContext('2d');
+      if (!ctx) return;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+      ctx.fillStyle = '#1e293b';
+      ctx.font = '24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+
+      const maxWidth = 700;
+      const lineHeight = 36;
+      const x = 40;
+      let y = 40;
+
+      const words = questionText.split(' ');
+      let line = '';
+
+      for (let i = 0; i < words.length; i++) {
+        const testLine = line + words[i] + ' ';
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxWidth && i > 0) {
+          ctx.fillText(line, x, y);
+          line = words[i] + ' ';
+          y += lineHeight;
+        } else {
+          line = testLine;
+        }
+      }
+      ctx.fillText(line, x, y);
+
+      setTextBackgroundUrl(tempCanvas.toDataURL('image/png'));
+    } else if (!questionText && !backgroundImageUrl) {
+      setTextBackgroundUrl('');
+    }
+  }, [questionText, backgroundImageUrl]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -205,12 +251,18 @@ export function Whiteboard({
       </div>
 
       <div className="flex-1 relative bg-white">
-        {backgroundImageUrl && (
+        {(backgroundImageUrl || textBackgroundUrl) && (
           <img
             ref={backgroundRef}
-            src={backgroundImageUrl}
+            src={backgroundImageUrl || textBackgroundUrl}
             alt="Whiteboard background"
-            className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            style={{
+              objectFit: 'none',
+              objectPosition: 'top left',
+              maxWidth: '60%',
+              maxHeight: '40%',
+            }}
           />
         )}
 

@@ -23,6 +23,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   const [canvasDataUrl, setCanvasDataUrl] = useState<string>('');
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string>('');
   const [currentQuestion, setCurrentQuestion] = useState<string>('');
+  const [currentQuestionText, setCurrentQuestionText] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
@@ -291,6 +292,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   const handleQuestionSubmit = async (questionText: string, imageUrl?: string) => {
     console.log('📝 Question submitted:', { questionText, hasImage: !!imageUrl });
     setCurrentQuestion(questionText);
+    setCurrentQuestionText(questionText);
     setIsProcessing(true);
     setStatusMessage('Processing question...');
 
@@ -303,6 +305,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
 
       if (imageUrl) {
         console.log('🖼️ Analyzing uploaded image...');
+        setBackgroundImageUrl(imageUrl);
         try {
           const imageAnalysis = await geminiRef.current.analyzeImage(imageUrl, questionText);
           console.log('✓ Image analysis complete:', imageAnalysis.substring(0, 100) + '...');
@@ -315,6 +318,8 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
           setStatusMessage('Failed to analyze image, continuing without it...');
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
+      } else {
+        setBackgroundImageUrl('');
       }
 
       // Runware background generation disabled for now
@@ -478,6 +483,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
         <Whiteboard
           onCanvasUpdate={handleCanvasUpdate}
           backgroundImageUrl={backgroundImageUrl}
+          questionText={currentQuestionText}
           isListening={isListening}
           isSpeaking={isSpeaking}
           onToggleListening={handleToggleListening}
