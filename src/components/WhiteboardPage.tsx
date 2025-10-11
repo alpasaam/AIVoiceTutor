@@ -17,28 +17,49 @@ interface WhiteboardPageProps {
   settings: UserSettings;
 }
 
-function isCanvasBlank(canvasDataUrl: string): boolean {
-  if (!canvasDataUrl) return true;
-
-  const img = new Image();
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return true;
-
-  try {
-    const data = canvasDataUrl.split(',')[1];
-    const binary = atob(data);
-    const array = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      array[i] = binary.charCodeAt(i);
-    }
-
-    const hasContent = array.some(byte => byte !== 0);
-    return !hasContent;
-  } catch (error) {
-    console.error('Error checking canvas content:', error);
+async function isCanvasBlank(canvasDataUrl: string): Promise<boolean> {
+  if (!canvasDataUrl || canvasDataUrl.length < 100) {
+    console.log('🔍 Canvas check: Empty or too small');
     return true;
   }
+
+  return new Promise<boolean>((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        console.log('🔍 Canvas check: No context available');
+        resolve(true);
+        return;
+      }
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const pixels = imageData.data;
+
+      let hasNonTransparentPixel = false;
+      for (let i = 3; i < pixels.length; i += 4) {
+        if (pixels[i] > 0) {
+          hasNonTransparentPixel = true;
+          break;
+        }
+      }
+
+      console.log('🔍 Canvas check:', hasNonTransparentPixel ? 'HAS CONTENT' : 'BLANK');
+      resolve(!hasNonTransparentPixel);
+    };
+
+    img.onerror = () => {
+      console.error('🔍 Canvas check: Failed to load image');
+      resolve(true);
+    };
+
+    img.src = canvasDataUrl;
+  });
 }
 
 export function WhiteboardPage({ settings }: WhiteboardPageProps) {
@@ -266,7 +287,8 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   };
 
   const handleQuestionSubmit = async (questionText: string, imageUrl?: string) => {
-    console.log('📝 Question submitted:', { questionText, hasImage: !!imageUrl, hasCanvas: !isCanvasBlank(canvasDataUrl) });
+    const canvasIsBlank = await isCanvasBlank(canvasDataUrl);
+    console.log('📝 Question submitted:', { questionText, hasImage: !!imageUrl, hasCanvas: !canvasIsBlank, canvasDataLength: canvasDataUrl.length });
     setCurrentQuestion(questionText);
     setIsProcessing(true);
     setStatusMessage('Processing your question and whiteboard...');
@@ -280,7 +302,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
 
       let compositeCanvasUrl: string | undefined = undefined;
 
-      if (!isCanvasBlank(canvasDataUrl)) {
+      if (!canvasIsBlank) {
         console.log('🖼️ Canvas has content, creating composite image...');
         try {
           if (backgroundImageUrl) {
@@ -337,13 +359,17 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
 
     console.log('💬 Sending message to AI:', {
       message: message.substring(0, 100) + '...',
-      hasCanvasImage: !!canvasImageUrl
+      hasCanvasImage: !!canvasImageUrl,
+      canvasImageLength: canvasImageUrl?.length || 0,
+      canvasImagePreview: canvasImageUrl?.substring(0, 50)
     });
     setIsProcessing(true);
     setStatusMessage('AI is analyzing your question and whiteboard...');
 
     try {
+      console.log('📤 Calling aiTutorRef.current.getResponse with canvas image:', !!canvasImageUrl);
       const response = await aiTutorRef.current.getResponse(message, canvasImageUrl);
+      console.log('📥 Response received from AI');
       console.log('🤖 AI response received:', response.substring(0, 100) + '...');
       setStatusMessage('Generating voice response...');
 

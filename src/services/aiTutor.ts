@@ -58,16 +58,26 @@ Current tutoring session focus: Help the student understand and solve their prob
   }
 
   async getResponse(userMessage: string, imageDataUrl?: string): Promise<string> {
+    console.log('🎯 AITutorService.getResponse called:', {
+      hasImage: !!imageDataUrl,
+      imageLength: imageDataUrl?.length || 0,
+      messagePreview: userMessage.substring(0, 50)
+    });
+
     const userParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
 
     if (imageDataUrl) {
+      console.log('🖼️ Processing image data for AI...');
       const base64Data = imageDataUrl.split(',')[1];
       const mimeType = imageDataUrl.split(';')[0].split(':')[1];
+      console.log('🖼️ Image details:', { mimeType, base64Length: base64Data?.length || 0 });
       userParts.push(
         { text: userMessage },
         { inlineData: { mimeType, data: base64Data } }
       );
+      console.log('✓ Image added to user parts');
     } else {
+      console.log('ℹ️ No image data, text-only message');
       userParts.push({ text: userMessage });
     }
 
@@ -86,6 +96,11 @@ Current tutoring session focus: Help the student understand and solve their prob
         parts: msg.parts,
       })),
     ];
+
+    console.log('📡 Sending to Gemini API:', {
+      totalMessages: contents.length,
+      lastMessageHasImage: this.conversationHistory[this.conversationHistory.length - 1]?.parts.some(p => p.inlineData)
+    });
 
     const response = await fetch(
       `${this.baseUrl}/models/gemini-2.0-flash-exp:generateContent?key=${this.apiKey}`,
