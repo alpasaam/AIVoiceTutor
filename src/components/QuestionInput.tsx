@@ -165,18 +165,18 @@ export function QuestionInput({ onSubmit, disabled = false, isListening, isSpeak
                   )}
                 </div>
                 <span
-                  className={`absolute font-medium text-sm text-white transition-all duration-300 ease-in-out ${
-                    isListening ? 'left-3 opacity-100' : 'left-3 opacity-0'
+                  className={`absolute font-medium text-xs text-white transition-all duration-300 ease-in-out ${
+                    isListening ? 'left-2 opacity-100' : 'left-2 opacity-0'
                   }`}
                 >
-                  Unmute
+                  Now Listening
                 </span>
                 <span
-                  className={`absolute font-medium text-sm text-white transition-all duration-300 ease-in-out ${
-                    !isListening ? 'right-4 opacity-100' : 'right-4 opacity-0'
+                  className={`absolute font-medium text-xs text-white transition-all duration-300 ease-in-out ${
+                    !isListening ? 'right-2 opacity-100' : 'right-2 opacity-0'
                   }`}
                 >
-                  Mute
+                  Not Listening
                 </span>
               </button>
             </div>
