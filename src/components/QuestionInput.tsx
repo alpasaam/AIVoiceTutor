@@ -107,27 +107,63 @@ export function QuestionInput({ onSubmit, disabled = false, isListening, isSpeak
               </button>
             </div>
 
-            <div className="flex flex-col space-y-2">
+            <div className="flex flex-col space-y-3">
+              {/* Voice Output Toggle */}
               <button
                 onClick={onToggleSpeaking}
-                className={`flex items-center justify-center w-12 h-12 rounded-lg transition ${
-                  isSpeaking
-                    ? 'bg-green-600 text-white hover:bg-green-700'
-                    : 'bg-slate-600 text-white hover:bg-slate-700'
-                }`}
+                className="flex items-center space-x-2 group"
               >
-                {isSpeaking ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+                <span className="text-sm font-medium text-slate-700 whitespace-nowrap">
+                  {isSpeaking ? 'Voice On' : 'Voice Off'}
+                </span>
+                <div
+                  className={`relative w-14 h-7 rounded-full transition-all duration-300 ease-in-out shadow-md ${
+                    isSpeaking
+                      ? 'bg-green-500 hover:bg-green-600'
+                      : 'bg-slate-400 hover:bg-slate-500'
+                  }`}
+                >
+                  <div
+                    className={`absolute top-0.5 flex items-center justify-center w-6 h-6 bg-white rounded-full shadow-sm transition-all duration-300 ease-in-out ${
+                      isSpeaking ? 'translate-x-7' : 'translate-x-0.5'
+                    }`}
+                  >
+                    {isSpeaking ? (
+                      <Volume2 className="w-3.5 h-3.5 text-green-600" />
+                    ) : (
+                      <VolumeX className="w-3.5 h-3.5 text-slate-600" />
+                    )}
+                  </div>
+                </div>
               </button>
 
+              {/* Voice Input Toggle */}
               <button
                 onClick={onToggleListening}
-                className={`flex items-center justify-center w-12 h-12 rounded-lg transition ${
-                  isListening
-                    ? 'bg-red-600 text-white hover:bg-red-700 animate-pulse'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
+                className="flex items-center space-x-2 group"
               >
-                {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                <span className="text-sm font-medium text-slate-700 whitespace-nowrap">
+                  {isListening ? 'Stop Voice' : 'Start Voice'}
+                </span>
+                <div
+                  className={`relative w-14 h-7 rounded-full transition-all duration-300 ease-in-out shadow-md ${
+                    isListening
+                      ? 'bg-red-500 hover:bg-red-600'
+                      : 'bg-blue-500 hover:bg-blue-600'
+                  }`}
+                >
+                  <div
+                    className={`absolute top-0.5 flex items-center justify-center w-6 h-6 bg-white rounded-full shadow-sm transition-all duration-300 ease-in-out ${
+                      isListening ? 'translate-x-7' : 'translate-x-0.5'
+                    } ${isListening ? 'animate-pulse' : ''}`}
+                  >
+                    {isListening ? (
+                      <MicOff className="w-3.5 h-3.5 text-red-600" />
+                    ) : (
+                      <Mic className="w-3.5 h-3.5 text-blue-600" />
+                    )}
+                  </div>
+                </div>
               </button>
             </div>
           </div>
