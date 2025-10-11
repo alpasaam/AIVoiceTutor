@@ -20,7 +20,9 @@ interface WhiteboardPageProps {
 export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(true);
-  const [canvasElements, setCanvasElements] = useState<any[]>([]);
+  const [canvasDataUrl, setCanvasDataUrl] = useState<string>('');
+  const [backgroundImageUrl, setBackgroundImageUrl] = useState<string>('');
+  const [currentQuestion, setCurrentQuestion] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
@@ -138,20 +140,40 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   };
 
   const handleQuestionSubmit = async (questionText: string, imageUrl?: string) => {
-    if (imageUrl && geminiRef.current) {
-      setIsProcessing(true);
-      try {
-        const imageAnalysis = await geminiRef.current.analyzeImage(imageUrl, questionText);
-        const contextMessage = `${questionText}\n\nImage analysis: ${imageAnalysis}`;
-        await handleUserMessage(contextMessage, imageUrl);
-      } catch (error) {
-        console.error('Error analyzing image:', error);
-        await handleUserMessage(questionText, imageUrl);
-      } finally {
-        setIsProcessing(false);
+    setCurrentQuestion(questionText);
+    setIsProcessing(true);
+    setStatusMessage('Processing question...');
+
+    try {
+      if (!geminiRef.current || !runwareRef.current) {
+        console.error('Services not initialized');
+        setStatusMessage('Services not ready');
+        return;
       }
-    } else {
+
+      if (imageUrl) {
+        const imageAnalysis = await geminiRef.current.analyzeImage(imageUrl, questionText);
+        console.log('Image analysis:', imageAnalysis);
+        questionText = `${questionText}\n\nImage shows: ${imageAnalysis}`;
+      }
+
+      const whiteboardPrompt = `Create a clean whiteboard image showing this math problem in the top-left corner: "${questionText}". Use clear handwriting style text on a white background. Leave plenty of space below and to the right for work.`;
+
+      setStatusMessage('Generating whiteboard...');
+      const newBackgroundUrl = await runwareRef.current.generateImage({
+        prompt: whiteboardPrompt,
+        width: 1024,
+        height: 768,
+      });
+
+      setBackgroundImageUrl(newBackgroundUrl);
       await handleUserMessage(questionText);
+    } catch (error) {
+      console.error('Error processing question:', error);
+      setStatusMessage('Error: ' + (error as Error).message);
+    } finally {
+      setIsProcessing(false);
+      setTimeout(() => setStatusMessage(''), 3000);
     }
   };
 
@@ -180,22 +202,6 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
         setStatusMessage('Voice disabled - check API key');
       }
 
-      if (aiTutorRef.current.shouldDrawOnCanvas(response)) {
-        const drawingInstruction = aiTutorRef.current.extractDrawingInstruction(response);
-        if (drawingInstruction && runwareRef.current) {
-          try {
-            const imageUrl = await runwareRef.current.generateImage({
-              prompt: drawingInstruction,
-              width: 512,
-              height: 512,
-            });
-
-            console.log('Generated image for canvas:', imageUrl);
-          } catch (error) {
-            console.error('Error generating drawing:', error);
-          }
-        }
-      }
     } catch (error) {
       console.error('❌ Error processing message:', error);
       setStatusMessage('Error: ' + (error as Error).message);
@@ -205,8 +211,86 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
     }
   };
 
-  const handleCanvasUpdate = (elements: any[]) => {
-    setCanvasElements(elements);
+  const analysisTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleCanvasUpdate = async (canvasData: string) => {
+    setCanvasDataUrl(canvasData);
+
+    if (analysisTimeoutRef.current) {
+      clearTimeout(analysisTimeoutRef.current);
+    }
+
+    analysisTimeoutRef.current = setTimeout(async () => {
+      if (!geminiRef.current || !runwareRef.current || !backgroundImageUrl || !currentQuestion) return;
+
+      try {
+        setStatusMessage('AI analyzing your work...');
+
+        const combinedImageUrl = await createCombinedImage(backgroundImageUrl, canvasData);
+
+        const analysis = await geminiRef.current.analyzeCanvasForProblem(combinedImageUrl);
+        console.log('Canvas analysis:', analysis);
+
+        const needsHelp = analysis.toLowerCase().includes('error') ||
+                         analysis.toLowerCase().includes('mistake') ||
+                         analysis.toLowerCase().includes('incorrect') ||
+                         analysis.toLowerCase().includes('wrong');
+
+        if (needsHelp) {
+          setStatusMessage('Deciding helpful annotations...');
+          const annotationGuidance = await geminiRef.current.decideHelpfulAnnotations(analysis, currentQuestion);
+          console.log('Annotation guidance:', annotationGuidance);
+
+          const annotationPrompt = `Create a clean educational whiteboard image with this math problem at top-left: "${currentQuestion}". Add these specific helpful annotations based on student work: ${annotationGuidance}. Use: red circles for errors, green checkmarks for correct steps, blue handwritten hints. Keep annotations minimal, clear, and educational. White background, realistic whiteboard style.`;
+
+          setStatusMessage('Updating whiteboard with helpful hints...');
+          const annotatedBackground = await runwareRef.current.generateImage({
+            prompt: annotationPrompt,
+            width: 1024,
+            height: 768,
+          });
+
+          setBackgroundImageUrl(annotatedBackground);
+        }
+
+        setStatusMessage('');
+      } catch (error) {
+        console.error('Error analyzing canvas:', error);
+        setStatusMessage('');
+      }
+    }, 2000);
+  };
+
+  const createCombinedImage = async (bgUrl: string, overlayDataUrl: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'));
+        return;
+      }
+
+      const bgImg = new Image();
+      bgImg.crossOrigin = 'anonymous';
+
+      bgImg.onload = () => {
+        canvas.width = bgImg.width;
+        canvas.height = bgImg.height;
+
+        ctx.drawImage(bgImg, 0, 0);
+
+        const overlayImg = new Image();
+        overlayImg.onload = () => {
+          ctx.drawImage(overlayImg, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        overlayImg.onerror = () => reject(new Error('Failed to load overlay'));
+        overlayImg.src = overlayDataUrl;
+      };
+
+      bgImg.onerror = () => reject(new Error('Failed to load background'));
+      bgImg.src = bgUrl;
+    });
   };
 
   return (
@@ -214,7 +298,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
       <div className="flex-1 overflow-hidden">
         <Whiteboard
           onCanvasUpdate={handleCanvasUpdate}
-          initialElements={canvasElements}
+          backgroundImageUrl={backgroundImageUrl}
           isListening={isListening}
           isSpeaking={isSpeaking}
           onToggleListening={handleToggleListening}
