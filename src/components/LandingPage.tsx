@@ -6,13 +6,11 @@ interface LandingPageProps {
 }
 
 const VOICES = [
-  { id: '8Ln42OXYupYsag45MAUy', name: 'Almost Neil Degrass Tyson', description: 'Science documentary' },
-  { id: 'BBfN7Spa3cqLPH1xAS22', name: 'British Story Narrator', description: '' },
-  { id: 'Bj9UqZbhQsanLzgalpEG', name: 'Cowboy Tutor', description: '' },
-  { id: 'aMSt68OGf4xUZAnLpTU8', name: 'Casual Voice', description: '' },
-  { id: 'Myn1LuZgd2qPMOg9BNtC', name: 'Pirate Tutor', description: 'Young and energetic' },
-  { id: 'TxGEqnHWrfWFTfGW9XjX', name: 'Josh', description: 'Deep and engaging' },
-  
+  { id: 'Myn1LuZgd2qPMOg9BNtC', name: 'Pirate Tutor', description: 'Adventurous and fun' },
+  { id: 'KTPVrSVAEUSJRClDzBw7', name: 'Cowboy Tutor', description: 'Down-to-earth and friendly' },
+  { id: '8Ln42OXYupYsag45MAUy', name: 'Science Enthusiast', description: 'Curious and inspiring' },
+  { id: '8AhzPX8Hll0IUrRKqLix', name: 'Australian Tutor', description: 'Laid-back and encouraging' },
+  { id: '8z5UhJ1uv7X8TN5yg8oI', name: 'British Tutor', description: 'Articulate and sophisticated' },
 ];
 
 const PUSHINESS_LABELS = [
