@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { Whiteboard } from './Whiteboard';
 import { Whiteboard, WhiteboardRef } from './Whiteboard';
 import { QuestionInput } from './QuestionInput';
 import { ElevenLabsService } from '../services/elevenlabs';
@@ -19,7 +18,6 @@ interface WhiteboardPageProps {
   onBack: () => void;
 }
 
-export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
 async function isCanvasBlank(canvasDataUrl: string): Promise<boolean> {
   if (!canvasDataUrl || canvasDataUrl.length < 100) {
     console.log('🔍 Canvas check: Empty or too small');
@@ -401,15 +399,6 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
           } catch (error) {
             console.error('Failed to resume recognition:', error);
           }
-        try {
-          await elevenLabsRef.current.speak(response, settings.voice_id);
-          console.log('✓ Voice playback complete');
-        } catch (voiceError: any) {
-          console.error('❌ Voice playback error:', {
-            error: voiceError,
-            message: voiceError?.message,
-          });
-          setStatusMessage('Voice playback failed: ' + (voiceError?.message || 'Unknown error'));
         }
       } else if (isSpeaking && !elevenLabsRef.current) {
         console.warn('⚠️ Voice output disabled - ElevenLabs not initialized');
