@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Whiteboard } from './Whiteboard';
+import { Whiteboard, WhiteboardRef } from './Whiteboard';
 import { QuestionInput } from './QuestionInput';
 import { VoiceControls } from './VoiceControls';
 import { ElevenLabsService } from '../services/elevenlabs';
@@ -17,6 +17,51 @@ interface WhiteboardPageProps {
   settings: UserSettings;
 }
 
+async function isCanvasBlank(canvasDataUrl: string): Promise<boolean> {
+  if (!canvasDataUrl || canvasDataUrl.length < 100) {
+    console.log('🔍 Canvas check: Empty or too small');
+    return true;
+  }
+
+  return new Promise<boolean>((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        console.log('🔍 Canvas check: No context available');
+        resolve(true);
+        return;
+      }
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const pixels = imageData.data;
+
+      let hasNonTransparentPixel = false;
+      for (let i = 3; i < pixels.length; i += 4) {
+        if (pixels[i] > 0) {
+          hasNonTransparentPixel = true;
+          break;
+        }
+      }
+
+      console.log('🔍 Canvas check:', hasNonTransparentPixel ? 'HAS CONTENT' : 'BLANK');
+      resolve(!hasNonTransparentPixel);
+    };
+
+    img.onerror = () => {
+      console.error('🔍 Canvas check: Failed to load image');
+      resolve(true);
+    };
+
+    img.src = canvasDataUrl;
+  });
+}
+
 export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(true);
@@ -32,6 +77,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   const runwareRef = useRef<RunwareService | null>(null);
   const geminiRef = useRef<GeminiService | null>(null);
   const recognitionRef = useRef<any>(null);
+  const whiteboardRef = useRef<WhiteboardRef>(null);
 
   useEffect(() => {
     const elevenLabsKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
@@ -92,9 +138,9 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
 
           if (isFinal) {
             setCurrentTranscript(transcript);
-            setStatusMessage('Processing your question...');
+            setStatusMessage('Processing your question and whiteboard...');
             setIsListening(false);
-            await handleUserMessage(transcript);
+            await handleQuestionSubmit(transcript);
           } else {
             setStatusMessage(`Listening: "${transcript}"`);
           }
@@ -245,13 +291,33 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
     console.log('📝 Question submitted:', { questionText, hasImage: !!imageUrl });
     setCurrentQuestion(questionText);
     setIsProcessing(true);
-    setStatusMessage('Processing question...');
+    setStatusMessage('Processing your question and whiteboard...');
 
     try {
       if (!geminiRef.current) {
         console.error('❌ Gemini service not initialized');
         setStatusMessage('Gemini service not ready. Check API key.');
         return;
+      }
+
+      let whiteboardScreenshot: string | undefined = undefined;
+
+      if (whiteboardRef.current) {
+        console.log('📸 Capturing complete whiteboard screenshot...');
+        try {
+          whiteboardScreenshot = await whiteboardRef.current.captureScreenshot();
+          if (whiteboardScreenshot && whiteboardScreenshot.length > 100) {
+            console.log('✓ Whiteboard screenshot captured:', whiteboardScreenshot.length, 'bytes');
+          } else {
+            console.log('ℹ️ Whiteboard appears empty');
+            whiteboardScreenshot = undefined;
+          }
+        } catch (error: any) {
+          console.error('❌ Failed to capture whiteboard screenshot:', error);
+          whiteboardScreenshot = undefined;
+        }
+      } else {
+        console.warn('⚠️ Whiteboard ref not available');
       }
 
       if (imageUrl) {
@@ -270,17 +336,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
         }
       }
 
-      // Runware background generation disabled for now
-      // Infrastructure kept in place for future use
-      // const whiteboardPrompt = `Create a clean whiteboard image showing this math problem in the top-left corner: "${questionText}". Use clear handwriting style text on a white background. Leave plenty of space below and to the right for work.`;
-      // const newBackgroundUrl = await runwareRef.current.generateImage({
-      //   prompt: whiteboardPrompt,
-      //   width: 1024,
-      //   height: 768,
-      // });
-      // setBackgroundImageUrl(newBackgroundUrl);
-
-      await handleUserMessage(questionText);
+      await handleUserMessage(questionText, whiteboardScreenshot);
     } catch (error: any) {
       console.error('❌ Error processing question:', {
         error,
@@ -294,19 +350,26 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
     }
   };
 
-  const handleUserMessage = async (message: string, imageUrl?: string) => {
+  const handleUserMessage = async (message: string, canvasImageUrl?: string) => {
     if (!aiTutorRef.current || !settings) {
       console.error('❌ AI tutor not initialized');
       setStatusMessage('AI tutor not ready');
       return;
     }
 
-    console.log('💬 Sending message to AI:', message.substring(0, 100) + '...');
+    console.log('💬 Sending message to AI:', {
+      message: message.substring(0, 100) + '...',
+      hasCanvasImage: !!canvasImageUrl,
+      canvasImageLength: canvasImageUrl?.length || 0,
+      canvasImagePreview: canvasImageUrl?.substring(0, 50)
+    });
     setIsProcessing(true);
-    setStatusMessage('AI is thinking...');
+    setStatusMessage('AI is analyzing your question and whiteboard...');
 
     try {
-      const response = await aiTutorRef.current.getResponse(message, imageUrl);
+      console.log('📤 Calling aiTutorRef.current.getResponse with canvas image:', !!canvasImageUrl);
+      const response = await aiTutorRef.current.getResponse(message, canvasImageUrl);
+      console.log('📥 Response received from AI');
       console.log('🤖 AI response received:', response.substring(0, 100) + '...');
       setStatusMessage('Generating voice response...');
 
@@ -429,6 +492,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
     <div className="h-screen flex flex-col relative bg-slate-50">
       <div className="flex-1 overflow-hidden">
         <Whiteboard
+          ref={whiteboardRef}
           onCanvasUpdate={handleCanvasUpdate}
           backgroundImageUrl={backgroundImageUrl}
           isListening={isListening}
