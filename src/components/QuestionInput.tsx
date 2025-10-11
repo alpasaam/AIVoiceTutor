@@ -119,7 +119,7 @@ export function QuestionInput({ onSubmit, disabled = false, isListening, isSpeak
               >
                 <div
                   className={`absolute top-1 w-10 h-10 bg-white rounded-md shadow-md transition-all duration-300 ease-in-out flex items-center justify-center ${
-                    isSpeaking ? 'left-[8.5rem]' : 'left-1'
+                    isSpeaking ? 'right-1' : 'left-1'
                   }`}
                 >
                   {isSpeaking ? (
@@ -155,7 +155,7 @@ export function QuestionInput({ onSubmit, disabled = false, isListening, isSpeak
               >
                 <div
                   className={`absolute top-1 w-10 h-10 bg-white rounded-md shadow-md transition-all duration-300 ease-in-out flex items-center justify-center ${
-                    isListening ? 'left-[8.5rem]' : 'left-1'
+                    isListening ? 'right-1' : 'left-1'
                   } ${isListening ? 'animate-pulse' : ''}`}
                 >
                   {isListening ? (
