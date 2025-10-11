@@ -17,6 +17,30 @@ interface WhiteboardPageProps {
   settings: UserSettings;
 }
 
+function isCanvasBlank(canvasDataUrl: string): boolean {
+  if (!canvasDataUrl) return true;
+
+  const img = new Image();
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return true;
+
+  try {
+    const data = canvasDataUrl.split(',')[1];
+    const binary = atob(data);
+    const array = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      array[i] = binary.charCodeAt(i);
+    }
+
+    const hasContent = array.some(byte => byte !== 0);
+    return !hasContent;
+  } catch (error) {
+    console.error('Error checking canvas content:', error);
+    return true;
+  }
+}
+
 export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(true);
@@ -92,9 +116,9 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
 
           if (isFinal) {
             setCurrentTranscript(transcript);
-            setStatusMessage('Processing your question...');
+            setStatusMessage('Processing your question and whiteboard...');
             setIsListening(false);
-            await handleUserMessage(transcript);
+            await handleQuestionSubmit(transcript);
           } else {
             setStatusMessage(`Listening: "${transcript}"`);
           }
@@ -242,16 +266,36 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   };
 
   const handleQuestionSubmit = async (questionText: string, imageUrl?: string) => {
-    console.log('📝 Question submitted:', { questionText, hasImage: !!imageUrl });
+    console.log('📝 Question submitted:', { questionText, hasImage: !!imageUrl, hasCanvas: !isCanvasBlank(canvasDataUrl) });
     setCurrentQuestion(questionText);
     setIsProcessing(true);
-    setStatusMessage('Processing question...');
+    setStatusMessage('Processing your question and whiteboard...');
 
     try {
       if (!geminiRef.current) {
         console.error('❌ Gemini service not initialized');
         setStatusMessage('Gemini service not ready. Check API key.');
         return;
+      }
+
+      let compositeCanvasUrl: string | undefined = undefined;
+
+      if (!isCanvasBlank(canvasDataUrl)) {
+        console.log('🖼️ Canvas has content, creating composite image...');
+        try {
+          if (backgroundImageUrl) {
+            compositeCanvasUrl = await createCombinedImage(backgroundImageUrl, canvasDataUrl);
+            console.log('✓ Composite image created (background + canvas)');
+          } else {
+            compositeCanvasUrl = canvasDataUrl;
+            console.log('✓ Using canvas only (no background)');
+          }
+        } catch (error: any) {
+          console.error('❌ Failed to create composite canvas:', error);
+          compositeCanvasUrl = canvasDataUrl;
+        }
+      } else {
+        console.log('ℹ️ Canvas is blank, skipping canvas analysis');
       }
 
       if (imageUrl) {
@@ -270,17 +314,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
         }
       }
 
-      // Runware background generation disabled for now
-      // Infrastructure kept in place for future use
-      // const whiteboardPrompt = `Create a clean whiteboard image showing this math problem in the top-left corner: "${questionText}". Use clear handwriting style text on a white background. Leave plenty of space below and to the right for work.`;
-      // const newBackgroundUrl = await runwareRef.current.generateImage({
-      //   prompt: whiteboardPrompt,
-      //   width: 1024,
-      //   height: 768,
-      // });
-      // setBackgroundImageUrl(newBackgroundUrl);
-
-      await handleUserMessage(questionText);
+      await handleUserMessage(questionText, compositeCanvasUrl);
     } catch (error: any) {
       console.error('❌ Error processing question:', {
         error,
@@ -294,19 +328,22 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
     }
   };
 
-  const handleUserMessage = async (message: string, imageUrl?: string) => {
+  const handleUserMessage = async (message: string, canvasImageUrl?: string) => {
     if (!aiTutorRef.current || !settings) {
       console.error('❌ AI tutor not initialized');
       setStatusMessage('AI tutor not ready');
       return;
     }
 
-    console.log('💬 Sending message to AI:', message.substring(0, 100) + '...');
+    console.log('💬 Sending message to AI:', {
+      message: message.substring(0, 100) + '...',
+      hasCanvasImage: !!canvasImageUrl
+    });
     setIsProcessing(true);
-    setStatusMessage('AI is thinking...');
+    setStatusMessage('AI is analyzing your question and whiteboard...');
 
     try {
-      const response = await aiTutorRef.current.getResponse(message, imageUrl);
+      const response = await aiTutorRef.current.getResponse(message, canvasImageUrl);
       console.log('🤖 AI response received:', response.substring(0, 100) + '...');
       setStatusMessage('Generating voice response...');
 
