@@ -370,7 +370,6 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
   const handleQuestionSubmit = async (questionText: string, imageUrl?: string) => {
     console.log('📝 Question submitted:', { questionText, hasImage: !!imageUrl });
     setCurrentQuestion(questionText);
-    setCurrentQuestionText(questionText);
     setIsProcessing(true);
     setStatusMessage('Processing your question and whiteboard...');
 
@@ -404,6 +403,7 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
       if (imageUrl) {
         console.log('🖼️ Analyzing uploaded image...');
         setBackgroundImageUrl(imageUrl);
+        setCurrentQuestionText(questionText);
         try {
           const imageAnalysis = await geminiRef.current.analyzeImage(imageUrl, questionText);
           console.log('✓ Image analysis complete:', imageAnalysis.substring(0, 100) + '...');
@@ -416,8 +416,6 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
           setStatusMessage('Failed to analyze image, continuing without it...');
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
-      } else {
-        setBackgroundImageUrl('');
       }
 
       try {
