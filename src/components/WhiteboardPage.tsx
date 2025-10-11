@@ -248,12 +248,9 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
     setStatusMessage('Processing question...');
 
     try {
-      if (!geminiRef.current || !runwareRef.current) {
-        const missing = [];
-        if (!geminiRef.current) missing.push('Gemini');
-        if (!runwareRef.current) missing.push('Runware');
-        console.error('❌ Services not initialized:', missing.join(', '));
-        setStatusMessage(`Services not ready: ${missing.join(', ')}. Check API keys.`);
+      if (!geminiRef.current) {
+        console.error('❌ Gemini service not initialized');
+        setStatusMessage('Gemini service not ready. Check API key.');
         return;
       }
 
@@ -273,27 +270,15 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
         }
       }
 
-      const whiteboardPrompt = `Create a clean whiteboard image showing this math problem in the top-left corner: "${questionText}". Use clear handwriting style text on a white background. Leave plenty of space below and to the right for work.`;
-
-      console.log('🎨 Generating whiteboard background...');
-      setStatusMessage('Generating whiteboard...');
-      try {
-        const newBackgroundUrl = await runwareRef.current.generateImage({
-          prompt: whiteboardPrompt,
-          width: 1024,
-          height: 768,
-        });
-        console.log('✓ Whiteboard generated:', newBackgroundUrl);
-        setBackgroundImageUrl(newBackgroundUrl);
-      } catch (runwareError: any) {
-        console.error('❌ Runware generation failed:', {
-          error: runwareError,
-          message: runwareError?.message,
-          response: runwareError?.response,
-        });
-        setStatusMessage('Failed to generate whiteboard: ' + (runwareError?.message || 'Unknown error'));
-        throw runwareError;
-      }
+      // Runware background generation disabled for now
+      // Infrastructure kept in place for future use
+      // const whiteboardPrompt = `Create a clean whiteboard image showing this math problem in the top-left corner: "${questionText}". Use clear handwriting style text on a white background. Leave plenty of space below and to the right for work.`;
+      // const newBackgroundUrl = await runwareRef.current.generateImage({
+      //   prompt: whiteboardPrompt,
+      //   width: 1024,
+      //   height: 768,
+      // });
+      // setBackgroundImageUrl(newBackgroundUrl);
 
       await handleUserMessage(questionText);
     } catch (error: any) {
@@ -363,6 +348,9 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
       clearTimeout(analysisTimeoutRef.current);
     }
 
+    // Canvas analysis and Runware annotation disabled for now
+    // Infrastructure kept in place for future use
+    /*
     analysisTimeoutRef.current = setTimeout(async () => {
       if (!geminiRef.current || !runwareRef.current || !backgroundImageUrl || !currentQuestion) return;
 
@@ -402,6 +390,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
         setStatusMessage('');
       }
     }, 2000);
+    */
   };
 
   const createCombinedImage = async (bgUrl: string, overlayDataUrl: string): Promise<string> => {
