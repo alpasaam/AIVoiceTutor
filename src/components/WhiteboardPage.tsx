@@ -86,15 +86,26 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
 
       try {
         recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = false;
-        recognitionRef.current.interimResults = true;
-        recognitionRef.current.lang = 'en-US';
-        recognitionRef.current.maxAlternatives = 1;
+
+        // For non-localhost HTTPS, use shorter timeout settings
+        if (!window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+          console.log('⚠️ Non-localhost detected - using adjusted settings for better reliability');
+          recognitionRef.current.continuous = false;
+          recognitionRef.current.interimResults = false; // Disable interim results for better stability
+          recognitionRef.current.lang = 'en-US';
+          recognitionRef.current.maxAlternatives = 1;
+        } else {
+          recognitionRef.current.continuous = false;
+          recognitionRef.current.interimResults = true;
+          recognitionRef.current.lang = 'en-US';
+          recognitionRef.current.maxAlternatives = 1;
+        }
 
         console.log('✓ Speech recognition instance created with settings:', {
-          continuous: false,
-          interimResults: true,
+          continuous: recognitionRef.current.continuous,
+          interimResults: recognitionRef.current.interimResults,
           lang: 'en-US',
+          isNonLocalhost: !window.location.hostname.includes('localhost'),
         });
 
         recognitionRef.current.onresult = async (event: any) => {
@@ -106,12 +117,14 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
 
           console.log('🎤 Transcript:', { transcript, isFinal, confidence });
 
-          if (isFinal) {
+          if (isFinal || !recognitionRef.current.interimResults) {
+            // Process final result OR if interim results are disabled, process any result
             setCurrentTranscript(transcript);
             setStatusMessage('Processing your question...');
             setIsListening(false);
             await handleUserMessage(transcript);
           } else {
+            // Show interim results
             setStatusMessage(`Listening: "${transcript}"`);
           }
         };
@@ -145,13 +158,18 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
 
           switch (event.error) {
             case 'network':
-              errorMessage = 'Network error. This might be a temporary issue - click to try again.';
-              shouldRetry = true;
-              console.error('Network error - Possible causes:');
-              console.error('1. Temporary connection issue with Google speech API');
-              console.error('2. Browser needs HTTPS (current:', window.location.protocol, ')');
-              console.error('3. Firewall/network blocking Google services');
-              console.error('4. Try: Restart browser, check internet, or use different network');
+              if (!window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+                errorMessage = 'Network issue with speech API. Your network may block Google services. Try: 1) Different network/wifi 2) VPN off 3) Browser restart';
+                console.error('Network error on non-localhost - Common causes:');
+                console.error('1. Corporate/school network blocking Google speech API');
+                console.error('2. VPN/firewall blocking external connections');
+                console.error('3. ISP-level restrictions');
+                console.error('4. Chrome Web Speech API requires connection to www.google.com/speech-api/');
+                console.error('Try: Access via localhost instead, or use different network');
+              } else {
+                errorMessage = 'Network error. Check internet connection and try again.';
+                shouldRetry = true;
+              }
               break;
             case 'not-allowed':
             case 'permission-denied':
