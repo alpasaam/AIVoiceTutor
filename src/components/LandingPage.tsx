@@ -6,12 +6,13 @@ interface LandingPageProps {
 }
 
 const VOICES = [
-  { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', description: 'Warm and encouraging' },
-  { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel', description: 'Calm and professional' },
-  { id: 'AZnzlk1XvdvUeBnXmlld', name: 'Domi', description: 'Strong and confident' },
-  { id: 'ErXwobaYiN019PkySvjV', name: 'Antoni', description: 'Well-rounded and articulate' },
-  { id: 'MF3mGyEYCl7XYWbV9V6O', name: 'Elli', description: 'Young and energetic' },
+  { id: '8Ln42OXYupYsag45MAUy', name: 'Almost Neil Degrass Tyson', description: 'Science documentary' },
+  { id: 'BBfN7Spa3cqLPH1xAS22', name: 'British Story Narrator', description: '' },
+  { id: 'Bj9UqZbhQsanLzgalpEG', name: 'Cowboy Tutor', description: '' },
+  { id: 'aMSt68OGf4xUZAnLpTU8', name: 'Casual Voice', description: '' },
+  { id: 'Myn1LuZgd2qPMOg9BNtC', name: 'Pirate Tutor', description: 'Young and energetic' },
   { id: 'TxGEqnHWrfWFTfGW9XjX', name: 'Josh', description: 'Deep and engaging' },
+  
 ];
 
 const PUSHINESS_LABELS = [
