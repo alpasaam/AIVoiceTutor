@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { Mic, MicOff, Eraser, Pencil, Upload, Type, Trash2, Volume2, VolumeX } from 'lucide-react';
+import { Eraser, Pencil, Trash2 } from 'lucide-react';
 
 interface DrawingElement {
   type: 'path' | 'text' | 'image';
@@ -245,13 +245,6 @@ export function Whiteboard({ onCanvasUpdate, initialElements = [] }: WhiteboardP
           </div>
 
           <div className="flex items-center space-x-2">
-
-            <label className="flex items-center space-x-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 cursor-pointer transition">
-              <Upload className="w-4 h-4" />
-              <span>Upload Image</span>
-              <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-            </label>
-
             <button
               onClick={clearCanvas}
               className="flex items-center space-x-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg font-medium hover:bg-red-200 transition"
