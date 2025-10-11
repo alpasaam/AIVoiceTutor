@@ -111,39 +111,51 @@ export function QuestionInput({ onSubmit, disabled = false, isListening, isSpeak
               {/* Voice Output Toggle */}
               <button
                 onClick={onToggleSpeaking}
-                className={`relative w-32 h-12 rounded-lg transition-all duration-300 ease-in-out shadow-md flex items-center justify-center font-medium text-sm text-white ${
+                className={`relative w-32 h-12 rounded-lg transition-all duration-300 ease-in-out shadow-md flex items-center justify-between px-2 font-medium text-sm text-white overflow-hidden ${
                   isSpeaking
                     ? 'bg-green-500 hover:bg-green-600'
                     : 'bg-slate-400 hover:bg-slate-500'
                 }`}
               >
-                <span className="absolute left-3">
+                <div
+                  className={`absolute top-1 left-1 w-10 h-10 bg-white rounded-md shadow-md transition-all duration-300 ease-in-out flex items-center justify-center ${
+                    isSpeaking ? 'translate-x-[4.5rem]' : 'translate-x-0'
+                  }`}
+                >
                   {isSpeaking ? (
-                    <Volume2 className="w-4 h-4" />
+                    <Volume2 className="w-5 h-5 text-green-600" />
                   ) : (
-                    <VolumeX className="w-4 h-4" />
+                    <VolumeX className="w-5 h-5 text-slate-600" />
                   )}
+                </div>
+                <span className="relative z-10 w-full text-center">
+                  {isSpeaking ? 'Voice On' : 'Voice Off'}
                 </span>
-                <span>{isSpeaking ? 'Voice On' : 'Voice Off'}</span>
               </button>
 
               {/* Voice Input Toggle */}
               <button
                 onClick={onToggleListening}
-                className={`relative w-32 h-12 rounded-lg transition-all duration-300 ease-in-out shadow-md flex items-center justify-center font-medium text-sm text-white ${
+                className={`relative w-32 h-12 rounded-lg transition-all duration-300 ease-in-out shadow-md flex items-center justify-between px-2 font-medium text-sm text-white overflow-hidden ${
                   isListening
                     ? 'bg-red-500 hover:bg-red-600'
                     : 'bg-blue-500 hover:bg-blue-600'
-                } ${isListening ? 'animate-pulse' : ''}`}
+                }`}
               >
-                <span className="absolute left-3">
+                <div
+                  className={`absolute top-1 left-1 w-10 h-10 bg-white rounded-md shadow-md transition-all duration-300 ease-in-out flex items-center justify-center ${
+                    isListening ? 'translate-x-[4.5rem]' : 'translate-x-0'
+                  } ${isListening ? 'animate-pulse' : ''}`}
+                >
                   {isListening ? (
-                    <MicOff className="w-4 h-4" />
+                    <MicOff className="w-5 h-5 text-red-600" />
                   ) : (
-                    <Mic className="w-4 h-4" />
+                    <Mic className="w-5 h-5 text-blue-600" />
                   )}
+                </div>
+                <span className="relative z-10 w-full text-center">
+                  {isListening ? 'Stop Voice' : 'Start Voice'}
                 </span>
-                <span>{isListening ? 'Stop Voice' : 'Start Voice'}</span>
               </button>
             </div>
           </div>
