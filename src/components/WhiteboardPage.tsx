@@ -435,8 +435,39 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
           await contextServiceRef.current.updateVisibility(userId, true);
           await contextServiceRef.current.updateMinimized(userId, false);
         }
+
+        console.log('✓ Context window updated and displayed');
       } catch (contextError: any) {
         console.error('❌ Failed to generate context info:', contextError);
+
+        const fallbackContent: AIContextContent = {
+          title: imageUrl ? 'Problem Analysis' : 'Question Guide',
+          blocks: [
+            {
+              type: 'hint',
+              content: imageUrl
+                ? 'I\'m analyzing your uploaded image. Let me help you work through this problem step by step.'
+                : 'Let me help you understand this topic. Feel free to draw or write on the whiteboard as we work through this together.'
+            },
+            {
+              type: 'tip',
+              content: 'Try breaking down the problem into smaller steps. I\'m here to guide you!'
+            }
+          ],
+          timestamp: Date.now(),
+        };
+
+        setContextContent(fallbackContent);
+        setContextVisible(true);
+        setContextMinimized(false);
+
+        if (userId) {
+          await contextServiceRef.current.updateContent(userId, fallbackContent);
+          await contextServiceRef.current.updateVisibility(userId, true);
+          await contextServiceRef.current.updateMinimized(userId, false);
+        }
+
+        console.log('✓ Fallback context window displayed');
       }
 
       await handleUserMessage(questionText, whiteboardScreenshot);
