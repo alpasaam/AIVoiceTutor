@@ -111,15 +111,15 @@ export function QuestionInput({ onSubmit, disabled = false, isListening, isSpeak
               {/* Voice Output Toggle */}
               <button
                 onClick={onToggleSpeaking}
-                className={`relative w-32 h-12 rounded-lg transition-all duration-300 ease-in-out shadow-md flex items-center justify-between px-2 font-medium text-sm text-white overflow-hidden ${
+                className={`relative w-40 h-12 rounded-lg transition-all duration-300 ease-in-out shadow-md flex items-center overflow-hidden ${
                   isSpeaking
                     ? 'bg-green-500 hover:bg-green-600'
                     : 'bg-slate-400 hover:bg-slate-500'
                 }`}
               >
                 <div
-                  className={`absolute top-1 left-1 w-10 h-10 bg-white rounded-md shadow-md transition-all duration-300 ease-in-out flex items-center justify-center ${
-                    isSpeaking ? 'translate-x-[4.5rem]' : 'translate-x-0'
+                  className={`absolute top-1 w-10 h-10 bg-white rounded-md shadow-md transition-all duration-300 ease-in-out flex items-center justify-center ${
+                    isSpeaking ? 'left-[8.5rem]' : 'left-1'
                   }`}
                 >
                   {isSpeaking ? (
@@ -128,23 +128,34 @@ export function QuestionInput({ onSubmit, disabled = false, isListening, isSpeak
                     <VolumeX className="w-5 h-5 text-slate-600" />
                   )}
                 </div>
-                <span className="relative z-10 w-full text-center">
-                  {isSpeaking ? 'AI Voice On' : 'AI Text Only'}
+                <span
+                  className={`absolute font-medium text-xs text-white transition-all duration-300 ease-in-out ${
+                    isSpeaking ? 'left-2 opacity-100' : 'left-2 opacity-0'
+                  }`}
+                >
+                  AI Voice On
+                </span>
+                <span
+                  className={`absolute font-medium text-xs text-white transition-all duration-300 ease-in-out ${
+                    !isSpeaking ? 'right-2 opacity-100' : 'right-2 opacity-0'
+                  }`}
+                >
+                  AI Text Only
                 </span>
               </button>
 
               {/* Voice Input Toggle */}
               <button
                 onClick={onToggleListening}
-                className={`relative w-32 h-12 rounded-lg transition-all duration-300 ease-in-out shadow-md flex items-center justify-between px-2 font-medium text-sm text-white overflow-hidden ${
+                className={`relative w-40 h-12 rounded-lg transition-all duration-300 ease-in-out shadow-md flex items-center overflow-hidden ${
                   isListening
                     ? 'bg-red-500 hover:bg-red-600'
                     : 'bg-blue-500 hover:bg-blue-600'
                 }`}
               >
                 <div
-                  className={`absolute top-1 left-1 w-10 h-10 bg-white rounded-md shadow-md transition-all duration-300 ease-in-out flex items-center justify-center ${
-                    isListening ? 'translate-x-[4.5rem]' : 'translate-x-0'
+                  className={`absolute top-1 w-10 h-10 bg-white rounded-md shadow-md transition-all duration-300 ease-in-out flex items-center justify-center ${
+                    isListening ? 'left-[8.5rem]' : 'left-1'
                   } ${isListening ? 'animate-pulse' : ''}`}
                 >
                   {isListening ? (
@@ -153,8 +164,19 @@ export function QuestionInput({ onSubmit, disabled = false, isListening, isSpeak
                     <Mic className="w-5 h-5 text-blue-600" />
                   )}
                 </div>
-                <span className="relative z-10 w-full text-center">
-                  {isListening ? 'Unmute' : 'Mute'}
+                <span
+                  className={`absolute font-medium text-sm text-white transition-all duration-300 ease-in-out ${
+                    isListening ? 'left-3 opacity-100' : 'left-3 opacity-0'
+                  }`}
+                >
+                  Unmute
+                </span>
+                <span
+                  className={`absolute font-medium text-sm text-white transition-all duration-300 ease-in-out ${
+                    !isListening ? 'right-4 opacity-100' : 'right-4 opacity-0'
+                  }`}
+                >
+                  Mute
                 </span>
               </button>
             </div>
