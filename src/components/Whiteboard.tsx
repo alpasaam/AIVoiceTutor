@@ -10,20 +10,9 @@ interface DrawingElement {
 interface WhiteboardProps {
   onCanvasUpdate?: (elements: DrawingElement[]) => void;
   initialElements?: DrawingElement[];
-  isListening?: boolean;
-  isSpeaking?: boolean;
-  onToggleListening?: () => void;
-  onToggleSpeaking?: () => void;
 }
 
-export function Whiteboard({
-  onCanvasUpdate,
-  initialElements = [],
-  isListening = false,
-  isSpeaking = false,
-  onToggleListening,
-  onToggleSpeaking
-}: WhiteboardProps) {
+export function Whiteboard({ onCanvasUpdate, initialElements = [] }: WhiteboardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [tool, setTool] = useState<'pencil' | 'eraser'>('pencil');

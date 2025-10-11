@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Whiteboard } from './Whiteboard';
 import { QuestionInput } from './QuestionInput';
-import { VoiceControls } from './VoiceControls';
 import { ElevenLabsService } from '../services/elevenlabs';
 import { AITutorService } from '../services/aiTutor';
 import { RunwareService } from '../services/runware';
@@ -212,17 +211,17 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   return (
     <div className="h-screen flex flex-col relative bg-slate-50">
       <div className="flex-1 overflow-hidden">
-        <Whiteboard
-          onCanvasUpdate={handleCanvasUpdate}
-          initialElements={canvasElements}
-          isListening={isListening}
-          isSpeaking={isSpeaking}
-          onToggleListening={handleToggleListening}
-          onToggleSpeaking={handleToggleSpeaking}
-        />
+        <Whiteboard onCanvasUpdate={handleCanvasUpdate} initialElements={canvasElements} />
       </div>
 
-      <QuestionInput onSubmit={handleQuestionSubmit} disabled={isProcessing} />
+      <QuestionInput
+        onSubmit={handleQuestionSubmit}
+        disabled={isProcessing}
+        isListening={isListening}
+        isSpeaking={isSpeaking}
+        onToggleListening={handleToggleListening}
+        onToggleSpeaking={handleToggleSpeaking}
+      />
 
       {(isProcessing || statusMessage || currentTranscript) && (
         <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-50">

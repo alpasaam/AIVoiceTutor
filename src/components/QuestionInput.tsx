@@ -1,12 +1,16 @@
 import { useState } from 'react';
-import { Upload, Type, Send } from 'lucide-react';
+import { Upload, Send, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
 
 interface QuestionInputProps {
   onSubmit: (question: string, imageUrl?: string) => void;
   disabled?: boolean;
+  isListening: boolean;
+  isSpeaking: boolean;
+  onToggleListening: () => void;
+  onToggleSpeaking: () => void;
 }
 
-export function QuestionInput({ onSubmit, disabled = false }: QuestionInputProps) {
+export function QuestionInput({ onSubmit, disabled = false, isListening, isSpeaking, onToggleListening, onToggleSpeaking }: QuestionInputProps) {
   const [questionText, setQuestionText] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<'text' | 'image'>('text');
@@ -59,7 +63,7 @@ export function QuestionInput({ onSubmit, disabled = false }: QuestionInputProps
           </div>
         )}
 
-        <div className="flex items-end space-x-3">
+        <div className="flex items-start space-x-3">
           <div className="flex-1">
             <textarea
               value={questionText}
@@ -81,25 +85,51 @@ export function QuestionInput({ onSubmit, disabled = false }: QuestionInputProps
             />
           </div>
 
-          <div className="flex flex-col space-y-2">
-            <label className="flex items-center justify-center w-12 h-12 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 cursor-pointer transition disabled:opacity-50">
-              <Upload className="w-5 h-5" />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                disabled={disabled}
-                className="hidden"
-              />
-            </label>
+          <div className="flex space-x-2">
+            <div className="flex flex-col space-y-2">
+              <label className="flex items-center justify-center w-12 h-12 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 cursor-pointer transition disabled:opacity-50">
+                <Upload className="w-5 h-5" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={disabled}
+                  className="hidden"
+                />
+              </label>
 
-            <button
-              onClick={handleSubmit}
-              disabled={disabled || (!questionText.trim() && !imagePreview)}
-              className="flex items-center justify-center w-12 h-12 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-            >
-              <Send className="w-5 h-5" />
-            </button>
+              <button
+                onClick={handleSubmit}
+                disabled={disabled || (!questionText.trim() && !imagePreview)}
+                className="flex items-center justify-center w-12 h-12 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex flex-col space-y-2">
+              <button
+                onClick={onToggleSpeaking}
+                className={`flex items-center justify-center w-12 h-12 rounded-lg transition ${
+                  isSpeaking
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-slate-600 text-white hover:bg-slate-700'
+                }`}
+              >
+                {isSpeaking ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+              </button>
+
+              <button
+                onClick={onToggleListening}
+                className={`flex items-center justify-center w-12 h-12 rounded-lg transition ${
+                  isListening
+                    ? 'bg-red-600 text-white hover:bg-red-700 animate-pulse'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
         </div>
 
