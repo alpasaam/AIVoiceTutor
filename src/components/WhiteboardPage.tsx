@@ -79,7 +79,7 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
   const [contextContent, setContextContent] = useState<AIContextContent | null>(null);
   const [contextVisible, setContextVisible] = useState(false);
   const [contextMinimized, setContextMinimized] = useState(true);
-  const [contextPosition, setContextPosition] = useState({ x: 40, y: 140 });
+  const [contextPosition, setContextPosition] = useState({ x: window.innerWidth - 440, y: 80 });
   const [contextTransparency, setContextTransparency] = useState(1.0);
   const [userId, setUserId] = useState<string | null>(null);
   const [aiResponse, setAiResponse] = useState('');
