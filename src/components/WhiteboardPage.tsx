@@ -701,18 +701,18 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
           onToggleListening={handleToggleListening}
           onToggleSpeaking={handleToggleSpeaking}
         />
-
-        <AIContextWindow
-          content={contextContent}
-          isVisible={contextVisible}
-          isMinimized={contextMinimized}
-          position={contextPosition}
-          transparency={contextTransparency}
-          onClose={handleContextClose}
-          onToggleMinimize={handleContextToggleMinimize}
-          onPositionChange={handleContextPositionChange}
-        />
       </div>
+
+      <AIContextWindow
+        content={contextContent}
+        isVisible={contextVisible}
+        isMinimized={contextMinimized}
+        position={contextPosition}
+        transparency={contextTransparency}
+        onClose={handleContextClose}
+        onToggleMinimize={handleContextToggleMinimize}
+        onPositionChange={handleContextPositionChange}
+      />
 
       <QuestionInput
         onSubmit={handleQuestionSubmit}

@@ -3,7 +3,7 @@ import Draggable, { DraggableData, DraggableEvent } from 'react-draggable';
 import { X, Minimize2, Maximize2, GripHorizontal, Lightbulb, BookOpen, ListOrdered, Calculator } from 'lucide-react';
 import { MathContent } from './MathContent';
 
-export type ContextContentType = 'equation' | 'definition' | 'step-by-step' | 'theorem' | 'hint';
+export type ContextContentType = 'equation' | 'definition' | 'step-by-step' | 'theorem' | 'hint' | 'tip';
 
 export interface ContentBlock {
   type: ContextContentType;
@@ -37,6 +37,7 @@ const contentTypeIcons = {
   'step-by-step': ListOrdered,
   theorem: BookOpen,
   hint: Lightbulb,
+  tip: Lightbulb,
 };
 
 const contentTypeColors = {
@@ -45,6 +46,7 @@ const contentTypeColors = {
   'step-by-step': 'bg-purple-50 border-purple-200',
   theorem: 'bg-orange-50 border-orange-200',
   hint: 'bg-yellow-50 border-yellow-200',
+  tip: 'bg-yellow-50 border-yellow-200',
 };
 
 export function AIContextWindow({
