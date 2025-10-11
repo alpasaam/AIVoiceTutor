@@ -2,10 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Whiteboard, WhiteboardRef } from './Whiteboard';
 import { QuestionInput } from './QuestionInput';
+import { VoiceControls } from './VoiceControls';
+import { AIContextWindow, AIContextContent } from './AIContextWindow';
 import { ElevenLabsService } from '../services/elevenlabs';
 import { AITutorService } from '../services/aiTutor';
 import { RunwareService } from '../services/runware';
 import { GeminiService } from '../services/gemini';
+import { ContextWindowService } from '../services/contextWindowService';
+import { supabase } from '../lib/supabase';
 
 interface UserSettings {
   voice_id: string;
@@ -69,9 +73,16 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
   const [canvasDataUrl, setCanvasDataUrl] = useState<string>('');
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string>('');
   const [currentQuestion, setCurrentQuestion] = useState<string>('');
+  const [currentQuestionText, setCurrentQuestionText] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
+  const [contextContent, setContextContent] = useState<AIContextContent | null>(null);
+  const [contextVisible, setContextVisible] = useState(false);
+  const [contextMinimized, setContextMinimized] = useState(true);
+  const [contextPosition, setContextPosition] = useState({ x: 40, y: 140 });
+  const [contextTransparency, setContextTransparency] = useState(1.0);
+  const [userId, setUserId] = useState<string | null>(null);
   const [aiResponse, setAiResponse] = useState('');
 
   const elevenLabsRef = useRef<ElevenLabsService | null>(null);
@@ -79,6 +90,27 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
   const runwareRef = useRef<RunwareService | null>(null);
   const geminiRef = useRef<GeminiService | null>(null);
   const recognitionRef = useRef<any>(null);
+  const contextServiceRef = useRef<ContextWindowService>(new ContextWindowService());
+  const positionUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const loadUserAndSettings = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        const contextSettings = await contextServiceRef.current.getOrCreateSettings(user.id);
+        setContextPosition({ x: contextSettings.x_position, y: contextSettings.y_position });
+        setContextMinimized(contextSettings.is_minimized);
+        setContextVisible(contextSettings.is_visible);
+        setContextTransparency(contextSettings.transparency_level);
+        if (contextSettings.last_shown_content) {
+          setContextContent(contextSettings.last_shown_content);
+        }
+      }
+    };
+
+    loadUserAndSettings();
+  }, []);
   const whiteboardRef = useRef<WhiteboardRef>(null);
 
   useEffect(() => {
@@ -120,14 +152,41 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
 
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       console.log('✓ Speech recognition API detected');
+      console.log('🔍 Environment check:', {
+        protocol: window.location.protocol,
+        isHTTPS: window.location.protocol === 'https:',
+        isLocalhost: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1',
+        online: navigator.onLine,
+        browser: navigator.userAgent.includes('Chrome') ? 'Chrome' :
+                 navigator.userAgent.includes('Edge') ? 'Edge' :
+                 navigator.userAgent.includes('Safari') ? 'Safari' : 'Other',
+      });
+
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
       try {
         recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = false;
-        recognitionRef.current.interimResults = true;
-        recognitionRef.current.lang = 'en-US';
-        recognitionRef.current.maxAlternatives = 1;
+
+        // For non-localhost HTTPS, use shorter timeout settings
+        if (!window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+          console.log('⚠️ Non-localhost detected - using adjusted settings for better reliability');
+          recognitionRef.current.continuous = false;
+          recognitionRef.current.interimResults = false; // Disable interim results for better stability
+          recognitionRef.current.lang = 'en-US';
+          recognitionRef.current.maxAlternatives = 1;
+        } else {
+          recognitionRef.current.continuous = false;
+          recognitionRef.current.interimResults = true;
+          recognitionRef.current.lang = 'en-US';
+          recognitionRef.current.maxAlternatives = 1;
+        }
+
+        console.log('✓ Speech recognition instance created with settings:', {
+          continuous: recognitionRef.current.continuous,
+          interimResults: recognitionRef.current.interimResults,
+          lang: 'en-US',
+          isNonLocalhost: !window.location.hostname.includes('localhost'),
+        });
 
         recognitionRef.current.onresult = async (event: any) => {
           console.log('🎤 Speech recognition result event:', event);
@@ -138,12 +197,14 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
 
           console.log('🎤 Transcript:', { transcript, isFinal, confidence });
 
-          if (isFinal) {
+          if (isFinal || !recognitionRef.current.interimResults) {
+            // Process final result OR if interim results are disabled, process any result
             setCurrentTranscript(transcript);
             setStatusMessage('Processing your question and whiteboard...');
             setIsListening(false);
             await handleQuestionSubmit(transcript);
           } else {
+            // Show interim results
             setStatusMessage(`Listening: "${transcript}"`);
           }
         };
@@ -166,43 +227,61 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
             error: event.error,
             message: event.message,
             timeStamp: event.timeStamp,
+            url: window.location.href,
+            protocol: window.location.protocol,
+            userAgent: navigator.userAgent,
+            onLine: navigator.onLine,
           });
 
           let errorMessage = '';
+          let shouldRetry = false;
+
           switch (event.error) {
             case 'network':
-              errorMessage = 'Network error. Check your internet connection or try again.';
-              console.error('Network error - Speech recognition requires internet for Chrome/Edge');
+              if (!window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+                errorMessage = 'Network issue with speech API. Your network may block Google services. Try: 1) Different network/wifi 2) VPN off 3) Browser restart';
+                console.error('Network error on non-localhost - Common causes:');
+                console.error('1. Corporate/school network blocking Google speech API');
+                console.error('2. VPN/firewall blocking external connections');
+                console.error('3. ISP-level restrictions');
+                console.error('4. Chrome Web Speech API requires connection to www.google.com/speech-api/');
+                console.error('Try: Access via localhost instead, or use different network');
+              } else {
+                errorMessage = 'Network error. Check internet connection and try again.';
+                shouldRetry = true;
+              }
               break;
             case 'not-allowed':
             case 'permission-denied':
-              errorMessage = 'Microphone permission denied. Please allow microphone access.';
+              errorMessage = 'Microphone permission denied. Please allow microphone access in browser settings.';
               console.error('Permission denied - User needs to grant microphone access');
               break;
             case 'no-speech':
-              errorMessage = 'No speech detected. Please try again.';
+              errorMessage = 'No speech detected. Please try again and speak clearly.';
+              shouldRetry = true;
               console.warn('No speech detected');
               break;
             case 'aborted':
-              errorMessage = 'Speech recognition aborted.';
+              errorMessage = 'Speech recognition stopped unexpectedly.';
+              shouldRetry = true;
               console.warn('Recognition aborted');
               break;
             case 'audio-capture':
-              errorMessage = 'No microphone found. Please connect a microphone.';
-              console.error('Audio capture error - No microphone available');
+              errorMessage = 'Cannot access microphone. Check if another app is using it.';
+              console.error('Audio capture error - Microphone may be in use by another app');
               break;
             case 'service-not-allowed':
-              errorMessage = 'Speech service not allowed. Try HTTPS or check browser settings.';
-              console.error('Service not allowed - May need HTTPS');
+              errorMessage = 'Speech service blocked. Requires HTTPS or different browser settings.';
+              console.error('Service not allowed - Current protocol:', window.location.protocol);
               break;
             default:
-              errorMessage = `Speech error: ${event.error}`;
+              errorMessage = `Speech error: ${event.error}. Try refreshing the page.`;
               console.error('Unknown speech recognition error:', event.error);
           }
 
-          setStatusMessage(errorMessage);
+          setStatusMessage(errorMessage + (shouldRetry ? ' (Will auto-clear)' : ''));
           setIsListening(false);
-          setTimeout(() => setStatusMessage(''), 5000);
+          setTimeout(() => setStatusMessage(''), shouldRetry ? 4000 : 8000);
         };
 
         console.log('✓ Speech recognition configured successfully');
@@ -292,6 +371,7 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
   const handleQuestionSubmit = async (questionText: string, imageUrl?: string) => {
     console.log('📝 Question submitted:', { questionText, hasImage: !!imageUrl });
     setCurrentQuestion(questionText);
+    setCurrentQuestionText(questionText);
     setIsProcessing(true);
     setStatusMessage('Processing your question and whiteboard...');
 
@@ -324,6 +404,7 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
 
       if (imageUrl) {
         console.log('🖼️ Analyzing uploaded image...');
+        setBackgroundImageUrl(imageUrl);
         try {
           const imageAnalysis = await geminiRef.current.analyzeImage(imageUrl, questionText);
           console.log('✓ Image analysis complete:', imageAnalysis.substring(0, 100) + '...');
@@ -336,6 +417,29 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
           setStatusMessage('Failed to analyze image, continuing without it...');
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
+      } else {
+        setBackgroundImageUrl('');
+      }
+
+      try {
+        setStatusMessage('Generating context information...');
+        const contextInfo = await geminiRef.current.generateContextInfo(questionText, imageUrl);
+        const newContextContent: AIContextContent = {
+          title: contextInfo.title,
+          blocks: contextInfo.blocks,
+          timestamp: Date.now(),
+        };
+        setContextContent(newContextContent);
+        setContextVisible(true);
+        setContextMinimized(false);
+
+        if (userId) {
+          await contextServiceRef.current.updateContent(userId, newContextContent);
+          await contextServiceRef.current.updateVisibility(userId, true);
+          await contextServiceRef.current.updateMinimized(userId, false);
+        }
+      } catch (contextError: any) {
+        console.error('❌ Failed to generate context info:', contextError);
       }
 
       await handleUserMessage(questionText, whiteboardScreenshot);
@@ -420,9 +524,23 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
   };
 
   const analysisTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const drawingActivityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleCanvasUpdate = async (canvasData: string) => {
     setCanvasDataUrl(canvasData);
+
+    if (contextVisible && !contextMinimized && contextContent) {
+      if (drawingActivityTimeoutRef.current) {
+        clearTimeout(drawingActivityTimeoutRef.current);
+      }
+
+      drawingActivityTimeoutRef.current = setTimeout(async () => {
+        setContextMinimized(true);
+        if (userId) {
+          await contextServiceRef.current.updateMinimized(userId, true);
+        }
+      }, 3000);
+    }
 
     if (analysisTimeoutRef.current) {
       clearTimeout(analysisTimeoutRef.current);
@@ -505,8 +623,38 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
     });
   };
 
+  const handleContextClose = async () => {
+    setContextVisible(false);
+    if (userId) {
+      await contextServiceRef.current.updateVisibility(userId, false);
+    }
+  };
+
+  const handleContextToggleMinimize = async () => {
+    const newMinimized = !contextMinimized;
+    setContextMinimized(newMinimized);
+    if (userId) {
+      await contextServiceRef.current.updateMinimized(userId, newMinimized);
+    }
+  };
+
+  const handleContextPositionChange = (x: number, y: number) => {
+    setContextPosition({ x, y });
+
+    if (positionUpdateTimeoutRef.current) {
+      clearTimeout(positionUpdateTimeoutRef.current);
+    }
+
+    positionUpdateTimeoutRef.current = setTimeout(async () => {
+      if (userId) {
+        await contextServiceRef.current.updatePosition(userId, x, y);
+      }
+    }, 500);
+  };
+
   return (
     <div className="h-screen flex flex-col relative bg-slate-50">
+      <div className="flex-1 overflow-hidden relative">
       <button
         onClick={onBack}
         className="absolute top-4 left-4 z-50 flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg shadow-md border border-slate-200 transition"
@@ -520,10 +668,22 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
           ref={whiteboardRef}
           onCanvasUpdate={handleCanvasUpdate}
           backgroundImageUrl={backgroundImageUrl}
+          questionText={currentQuestionText}
           isListening={isListening}
           isSpeaking={isSpeaking}
           onToggleListening={handleToggleListening}
           onToggleSpeaking={handleToggleSpeaking}
+        />
+
+        <AIContextWindow
+          content={contextContent}
+          isVisible={contextVisible}
+          isMinimized={contextMinimized}
+          position={contextPosition}
+          transparency={contextTransparency}
+          onClose={handleContextClose}
+          onToggleMinimize={handleContextToggleMinimize}
+          onPositionChange={handleContextPositionChange}
         />
       </div>
 

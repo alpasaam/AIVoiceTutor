@@ -188,4 +188,92 @@ export class GeminiService {
     const data = await response.json();
     return data.candidates[0].content.parts[0].text;
   }
+
+  async generateContextInfo(question: string, imageDataUrl?: string): Promise<any> {
+    console.log('🔍 Gemini: Generating context information...');
+    try {
+      const parts: any[] = [
+        {
+          text: `You are an expert math tutor. A student has asked: "${question}"
+
+Analyze this question and provide helpful contextual information that should be displayed in a reference window. Structure your response as a JSON object with the following format:
+
+{
+  "title": "Brief title for the context window (max 40 characters)",
+  "blocks": [
+    {
+      "type": "equation|definition|step-by-step|theorem|hint",
+      "content": "The content to display. Use LaTeX notation for math (wrap in $ for inline or $$ for display math)."
+    }
+  ]
+}
+
+Guidelines:
+- Include relevant formulas, theorems, or definitions
+- Use LaTeX notation: $x^2$ for inline math, $$\\frac{a}{b}$$ for display math
+- Keep content concise and directly relevant
+- Provide 1-4 blocks of information
+- Focus on what would help the student solve this specific problem
+- Use proper LaTeX syntax: \\frac{}{}, \\sqrt{}, ^{}, _{}, etc.
+
+Return ONLY the JSON object, no other text.`,
+        },
+      ];
+
+      if (imageDataUrl) {
+        const base64Data = imageDataUrl.split(',')[1];
+        const mimeType = imageDataUrl.split(';')[0].split(':')[1];
+        parts.push({
+          inlineData: {
+            mimeType,
+            data: base64Data,
+          },
+        });
+      }
+
+      const response = await fetch(
+        `${this.baseUrl}/models/gemini-2.0-flash-exp:generateContent?key=${this.apiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: {
+              temperature: 0.3,
+              maxOutputTokens: 1000,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Gemini API error:', { status: response.status, statusText: response.statusText, errorText });
+        throw new Error(`Gemini API error (${response.status}): ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+        console.error('❌ Gemini: Unexpected response format:', data);
+        throw new Error('Gemini returned unexpected response format');
+      }
+
+      const responseText = data.candidates[0].content.parts[0].text;
+
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.error('❌ Gemini: No JSON found in response:', responseText);
+        throw new Error('Could not parse context information');
+      }
+
+      const contextData = JSON.parse(jsonMatch[0]);
+      console.log('✓ Gemini: Context info generated successfully');
+      return contextData;
+    } catch (error: any) {
+      console.error('❌ Gemini generateContextInfo failed:', error);
+      throw new Error(`Failed to generate context: ${error.message}`);
+    }
+  }
 }

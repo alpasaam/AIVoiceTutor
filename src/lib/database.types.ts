@@ -73,6 +73,47 @@ export interface Database {
           updated_at?: string
         }
       }
+      context_window_settings: {
+        Row: {
+          id: string
+          user_id: string
+          x_position: number
+          y_position: number
+          is_minimized: boolean
+          is_visible: boolean
+          auto_show_enabled: boolean
+          transparency_level: number
+          last_shown_content: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          x_position?: number
+          y_position?: number
+          is_minimized?: boolean
+          is_visible?: boolean
+          auto_show_enabled?: boolean
+          transparency_level?: number
+          last_shown_content?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          x_position?: number
+          y_position?: number
+          is_minimized?: boolean
+          is_visible?: boolean
+          auto_show_enabled?: boolean
+          transparency_level?: number
+          last_shown_content?: Json
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
   }
 }
