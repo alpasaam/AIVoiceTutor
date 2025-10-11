@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Whiteboard, WhiteboardRef } from './Whiteboard';
 import { QuestionInput } from './QuestionInput';
-import { VoiceControls } from './VoiceControls';
 import { ElevenLabsService } from '../services/elevenlabs';
 import { AITutorService } from '../services/aiTutor';
 import { RunwareService } from '../services/runware';
@@ -71,6 +70,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
+  const [aiResponse, setAiResponse] = useState('');
 
   const elevenLabsRef = useRef<ElevenLabsService | null>(null);
   const aiTutorRef = useRef<AITutorService | null>(null);
@@ -371,6 +371,7 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
       const response = await aiTutorRef.current.getResponse(message, canvasImageUrl);
       console.log('📥 Response received from AI');
       console.log('🤖 AI response received:', response.substring(0, 100) + '...');
+      setAiResponse(response);
       setStatusMessage('Generating voice response...');
 
       if (isSpeaking && elevenLabsRef.current) {
@@ -388,6 +389,8 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
       } else if (isSpeaking && !elevenLabsRef.current) {
         console.warn('⚠️ Voice output disabled - ElevenLabs not initialized');
         setStatusMessage('Voice disabled - check API key');
+      } else if (!isSpeaking) {
+        setStatusMessage('');
       }
     } catch (error: any) {
       console.error('❌ Error processing message:', {
@@ -502,24 +505,37 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
         />
       </div>
 
-      <QuestionInput onSubmit={handleQuestionSubmit} disabled={isProcessing} />
+      <QuestionInput
+        onSubmit={handleQuestionSubmit}
+        disabled={isProcessing}
+        isListening={isListening}
+        isSpeaking={isSpeaking}
+        onToggleListening={handleToggleListening}
+        onToggleSpeaking={handleToggleSpeaking}
+      />
 
-      {(isProcessing || statusMessage || currentTranscript) && (
-        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-50">
-          <div className="bg-white px-6 py-4 rounded-lg shadow-xl border border-slate-200 min-w-[300px]">
+      {(isProcessing || statusMessage || currentTranscript || aiResponse) && (
+        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-50 max-w-2xl w-full px-4">
+          <div className="bg-white px-6 py-4 rounded-lg shadow-xl border border-slate-200">
             {currentTranscript && (
-              <div className="mb-2">
+              <div className="mb-3">
                 <p className="text-xs text-slate-500 mb-1">You said:</p>
                 <p className="text-slate-800 font-medium">{currentTranscript}</p>
               </div>
             )}
             {statusMessage && (
-              <p className="text-blue-600 font-medium flex items-center gap-2">
+              <p className="text-blue-600 font-medium flex items-center gap-2 mb-3">
                 {isProcessing && (
                   <span className="inline-block w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
                 )}
                 {statusMessage}
               </p>
+            )}
+            {aiResponse && !isSpeaking && (
+              <div className="border-t border-slate-200 pt-3">
+                <p className="text-xs text-slate-500 mb-1">AI Response:</p>
+                <p className="text-slate-800 whitespace-pre-wrap">{aiResponse}</p>
+              </div>
             )}
           </div>
         </div>

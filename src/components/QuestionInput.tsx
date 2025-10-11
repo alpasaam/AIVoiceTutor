@@ -1,12 +1,16 @@
 import { useState } from 'react';
-import { Upload, Type, Send } from 'lucide-react';
+import { Upload, Send, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
 
 interface QuestionInputProps {
   onSubmit: (question: string, imageUrl?: string) => void;
   disabled?: boolean;
+  isListening: boolean;
+  isSpeaking: boolean;
+  onToggleListening: () => void;
+  onToggleSpeaking: () => void;
 }
 
-export function QuestionInput({ onSubmit, disabled = false }: QuestionInputProps) {
+export function QuestionInput({ onSubmit, disabled = false, isListening, isSpeaking, onToggleListening, onToggleSpeaking }: QuestionInputProps) {
   const [questionText, setQuestionText] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<'text' | 'image'>('text');
@@ -59,7 +63,7 @@ export function QuestionInput({ onSubmit, disabled = false }: QuestionInputProps
           </div>
         )}
 
-        <div className="flex items-end space-x-3">
+        <div className="flex items-start space-x-3">
           <div className="flex-1">
             <textarea
               value={questionText}
@@ -73,7 +77,7 @@ export function QuestionInput({ onSubmit, disabled = false }: QuestionInputProps
               placeholder={
                 imagePreview
                   ? 'Add additional context (optional)...'
-                  : 'Type your question or problem here...'
+                  : 'Type here. Press Enter to submit and Shift+Enter for new line.'
               }
               disabled={disabled}
               rows={3}
@@ -81,30 +85,102 @@ export function QuestionInput({ onSubmit, disabled = false }: QuestionInputProps
             />
           </div>
 
-          <div className="flex flex-col space-y-2">
-            <label className="flex items-center justify-center w-12 h-12 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 cursor-pointer transition disabled:opacity-50">
-              <Upload className="w-5 h-5" />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                disabled={disabled}
-                className="hidden"
-              />
-            </label>
+          <div className="flex space-x-2">
+            <div className="flex flex-col space-y-2">
+              <label className="flex items-center justify-center w-12 h-12 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 cursor-pointer transition disabled:opacity-50">
+                <Upload className="w-5 h-5" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={disabled}
+                  className="hidden"
+                />
+              </label>
 
-            <button
-              onClick={handleSubmit}
-              disabled={disabled || (!questionText.trim() && !imagePreview)}
-              className="flex items-center justify-center w-12 h-12 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-            >
-              <Send className="w-5 h-5" />
-            </button>
+              <button
+                onClick={handleSubmit}
+                disabled={disabled || (!questionText.trim() && !imagePreview)}
+                className="flex items-center justify-center w-12 h-12 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex flex-col space-y-2">
+              {/* Voice Output Toggle */}
+              <button
+                onClick={onToggleSpeaking}
+                className={`relative w-40 h-12 rounded-lg transition-all duration-300 ease-in-out shadow-md flex items-center overflow-hidden ${
+                  isSpeaking
+                    ? 'bg-green-500 hover:bg-green-600'
+                    : 'bg-slate-400 hover:bg-slate-500'
+                }`}
+              >
+                <div
+                  className={`absolute top-1 left-1 w-10 h-10 bg-white rounded-md shadow-md transition-transform duration-300 ease-in-out flex items-center justify-center ${
+                    isSpeaking ? 'translate-x-[7rem]' : 'translate-x-0'
+                  }`}
+                >
+                  {isSpeaking ? (
+                    <Volume2 className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <VolumeX className="w-5 h-5 text-slate-600" />
+                  )}
+                </div>
+                <span
+                  className={`absolute font-medium text-xs text-white transition-all duration-300 ease-in-out ${
+                    isSpeaking ? 'left-2 opacity-100' : 'left-2 opacity-0'
+                  }`}
+                >
+                  AI Voice On
+                </span>
+                <span
+                  className={`absolute font-medium text-xs text-white transition-all duration-300 ease-in-out ${
+                    !isSpeaking ? 'right-2 opacity-100' : 'right-2 opacity-0'
+                  }`}
+                >
+                  AI Text Only
+                </span>
+              </button>
+
+              {/* Voice Input Toggle */}
+              <button
+                onClick={onToggleListening}
+                className={`relative w-40 h-12 rounded-lg transition-all duration-300 ease-in-out shadow-md flex items-center overflow-hidden ${
+                  isListening
+                    ? 'bg-red-500 hover:bg-red-600'
+                    : 'bg-blue-500 hover:bg-blue-600'
+                }`}
+              >
+                <div
+                  className={`absolute top-1 left-1 w-10 h-10 bg-white rounded-md shadow-md transition-transform duration-300 ease-in-out flex items-center justify-center ${
+                    isListening ? 'translate-x-[7rem]' : 'translate-x-0'
+                  } ${isListening ? 'animate-pulse' : ''}`}
+                >
+                  {isListening ? (
+                    <MicOff className="w-5 h-5 text-red-600" />
+                  ) : (
+                    <Mic className="w-5 h-5 text-blue-600" />
+                  )}
+                </div>
+                <span
+                  className={`absolute font-medium text-sm text-white transition-all duration-300 ease-in-out ${
+                    isListening ? 'left-3 opacity-100' : 'left-3 opacity-0'
+                  }`}
+                >
+                  Unmute
+                </span>
+                <span
+                  className={`absolute font-medium text-sm text-white transition-all duration-300 ease-in-out ${
+                    !isListening ? 'right-4 opacity-100' : 'right-4 opacity-0'
+                  }`}
+                >
+                  Mute
+                </span>
+              </button>
+            </div>
           </div>
-        </div>
-
-        <div className="mt-2 text-xs text-slate-500">
-          Press Enter to submit, Shift+Enter for new line
         </div>
       </div>
     </div>
