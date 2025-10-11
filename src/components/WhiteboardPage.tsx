@@ -175,8 +175,28 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
 
       if (isSpeaking && elevenLabsRef.current) {
         console.log('🔊 Speaking response with voice:', settings.voice_name);
+
+        // Stop listening while speaking to prevent feedback loop
+        const wasListening = isListening;
+        if (wasListening && recognitionRef.current) {
+          console.log('⏸️ Pausing speech recognition during voice output');
+          recognitionRef.current.stop();
+          setIsListening(false);
+        }
+
         await elevenLabsRef.current.speak(response, settings.voice_id);
         console.log('✓ Voice playback complete');
+
+        // Resume listening if it was active before
+        if (wasListening && recognitionRef.current) {
+          console.log('▶️ Resuming speech recognition');
+          try {
+            recognitionRef.current.start();
+            setIsListening(true);
+          } catch (error) {
+            console.error('Failed to resume recognition:', error);
+          }
+        }
       } else if (isSpeaking && !elevenLabsRef.current) {
         console.warn('⚠️ Voice output disabled - ElevenLabs not initialized');
         setStatusMessage('Voice disabled - check API key');
