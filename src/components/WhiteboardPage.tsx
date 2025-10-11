@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Whiteboard, WhiteboardRef } from './Whiteboard';
 import { QuestionInput } from './QuestionInput';
-import { VoiceControls } from './VoiceControls';
 import { AIContextWindow, AIContextContent } from './AIContextWindow';
 import { ElevenLabsService } from '../services/elevenlabs';
 import { AITutorService } from '../services/aiTutor';
@@ -654,7 +653,6 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
 
   return (
     <div className="h-screen flex flex-col relative bg-slate-50">
-      <div className="flex-1 overflow-hidden relative">
       <button
         onClick={onBack}
         className="absolute top-4 left-4 z-50 flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg shadow-md border border-slate-200 transition"
@@ -663,7 +661,7 @@ export function WhiteboardPage({ settings, onBack }: WhiteboardPageProps) {
         <span className="font-medium">Back</span>
       </button>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         <Whiteboard
           ref={whiteboardRef}
           onCanvasUpdate={handleCanvasUpdate}
