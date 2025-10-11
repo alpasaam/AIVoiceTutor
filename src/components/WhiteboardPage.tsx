@@ -72,6 +72,16 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
 
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       console.log('✓ Speech recognition API detected');
+      console.log('🔍 Environment check:', {
+        protocol: window.location.protocol,
+        isHTTPS: window.location.protocol === 'https:',
+        isLocalhost: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1',
+        online: navigator.onLine,
+        browser: navigator.userAgent.includes('Chrome') ? 'Chrome' :
+                 navigator.userAgent.includes('Edge') ? 'Edge' :
+                 navigator.userAgent.includes('Safari') ? 'Safari' : 'Other',
+      });
+
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
       try {
@@ -80,6 +90,12 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
         recognitionRef.current.interimResults = true;
         recognitionRef.current.lang = 'en-US';
         recognitionRef.current.maxAlternatives = 1;
+
+        console.log('✓ Speech recognition instance created with settings:', {
+          continuous: false,
+          interimResults: true,
+          lang: 'en-US',
+        });
 
         recognitionRef.current.onresult = async (event: any) => {
           console.log('🎤 Speech recognition result event:', event);
@@ -118,43 +134,56 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
             error: event.error,
             message: event.message,
             timeStamp: event.timeStamp,
+            url: window.location.href,
+            protocol: window.location.protocol,
+            userAgent: navigator.userAgent,
+            onLine: navigator.onLine,
           });
 
           let errorMessage = '';
+          let shouldRetry = false;
+
           switch (event.error) {
             case 'network':
-              errorMessage = 'Network error. Check your internet connection or try again.';
-              console.error('Network error - Speech recognition requires internet for Chrome/Edge');
+              errorMessage = 'Network error. This might be a temporary issue - click to try again.';
+              shouldRetry = true;
+              console.error('Network error - Possible causes:');
+              console.error('1. Temporary connection issue with Google speech API');
+              console.error('2. Browser needs HTTPS (current:', window.location.protocol, ')');
+              console.error('3. Firewall/network blocking Google services');
+              console.error('4. Try: Restart browser, check internet, or use different network');
               break;
             case 'not-allowed':
             case 'permission-denied':
-              errorMessage = 'Microphone permission denied. Please allow microphone access.';
+              errorMessage = 'Microphone permission denied. Please allow microphone access in browser settings.';
               console.error('Permission denied - User needs to grant microphone access');
               break;
             case 'no-speech':
-              errorMessage = 'No speech detected. Please try again.';
+              errorMessage = 'No speech detected. Please try again and speak clearly.';
+              shouldRetry = true;
               console.warn('No speech detected');
               break;
             case 'aborted':
-              errorMessage = 'Speech recognition aborted.';
+              errorMessage = 'Speech recognition stopped unexpectedly.';
+              shouldRetry = true;
               console.warn('Recognition aborted');
               break;
             case 'audio-capture':
-              errorMessage = 'No microphone found. Please connect a microphone.';
-              console.error('Audio capture error - No microphone available');
+              errorMessage = 'Cannot access microphone. Check if another app is using it.';
+              console.error('Audio capture error - Microphone may be in use by another app');
               break;
             case 'service-not-allowed':
-              errorMessage = 'Speech service not allowed. Try HTTPS or check browser settings.';
-              console.error('Service not allowed - May need HTTPS');
+              errorMessage = 'Speech service blocked. Requires HTTPS or different browser settings.';
+              console.error('Service not allowed - Current protocol:', window.location.protocol);
               break;
             default:
-              errorMessage = `Speech error: ${event.error}`;
+              errorMessage = `Speech error: ${event.error}. Try refreshing the page.`;
               console.error('Unknown speech recognition error:', event.error);
           }
 
-          setStatusMessage(errorMessage);
+          setStatusMessage(errorMessage + (shouldRetry ? ' (Will auto-clear)' : ''));
           setIsListening(false);
-          setTimeout(() => setStatusMessage(''), 5000);
+          setTimeout(() => setStatusMessage(''), shouldRetry ? 4000 : 8000);
         };
 
         console.log('✓ Speech recognition configured successfully');
