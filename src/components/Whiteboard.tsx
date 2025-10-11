@@ -214,7 +214,7 @@ useEffect(() => {
     <div className="h-full flex flex-col">
       <div className="bg-white border-b border-slate-200 p-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 ml-24">
             <button
               onClick={() => setTool('pencil')}
               className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition shadow-sm ${
