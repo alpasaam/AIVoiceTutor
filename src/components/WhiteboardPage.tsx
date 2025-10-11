@@ -211,22 +211,18 @@ export function WhiteboardPage({ settings }: WhiteboardPageProps) {
 
   return (
     <div className="h-screen flex flex-col relative bg-slate-50">
+      <VoiceControls
+        isListening={isListening}
+        isSpeaking={isSpeaking}
+        onToggleListening={handleToggleListening}
+        onToggleSpeaking={handleToggleSpeaking}
+      />
+
       <div className="flex-1 overflow-hidden">
         <Whiteboard onCanvasUpdate={handleCanvasUpdate} initialElements={canvasElements} />
       </div>
 
-      <QuestionInput
-        onSubmit={handleQuestionSubmit}
-        disabled={isProcessing}
-        voiceControls={
-          <VoiceControls
-            isListening={isListening}
-            isSpeaking={isSpeaking}
-            onToggleListening={handleToggleListening}
-            onToggleSpeaking={handleToggleSpeaking}
-          />
-        }
-      />
+      <QuestionInput onSubmit={handleQuestionSubmit} disabled={isProcessing} />
 
       {(isProcessing || statusMessage || currentTranscript) && (
         <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-50">

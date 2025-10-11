@@ -15,7 +15,7 @@ export function VoiceControls({
   onToggleSpeaking,
 }: VoiceControlsProps) {
   return (
-    <div className="flex flex-col space-y-2">
+    <div className="absolute top-4 right-4 flex items-center space-x-3 z-10">
       <button
         onClick={onToggleSpeaking}
         className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium shadow-lg transition ${
