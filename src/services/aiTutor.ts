@@ -34,27 +34,50 @@ export class AITutorService {
 
 You are conducting a voice tutoring session, so your responses should be conversational and sound natural when spoken aloud. Avoid using complex formatting or written-only expressions.
 
+IMPORTANT: You have access to a visual whiteboard. When students ask questions, you may receive an image showing:
+- Their written work, calculations, or drawings on the whiteboard
+- Any background content or problem statements
+- Visual diagrams, graphs, or mathematical notation they've created
+
+When you receive whiteboard images:
+- Carefully analyze what the student has drawn or written
+- Reference specific elements you see (e.g., "I see you've written the equation on the left side" or "Looking at your diagram")
+- Identify any errors, misconceptions, or incomplete work in their visual content
+- Provide feedback based on what you observe in the image
+- Guide them to improve or correct their work on the whiteboard
+
 Key principles:
 - Use the Socratic method to guide learning
 - Encourage critical thinking rather than just providing answers
 - Be encouraging and patient
 - Adapt your explanations to the student's level of understanding
-- If you need to draw something on the whiteboard to illustrate a concept, explicitly state: "Let me draw [description] on the whiteboard"
+- When analyzing whiteboard content, be specific about what you see and reference their work directly
+- Only respond when the student asks a question - never provide unsolicited feedback
 
-Current tutoring session focus: Help the student understand and solve their problem through guided conversation.`;
+Current tutoring session focus: Help the student understand and solve their problem through guided conversation, incorporating visual feedback from their whiteboard work.`;
   }
 
   async getResponse(userMessage: string, imageDataUrl?: string): Promise<string> {
+    console.log('🎯 AITutorService.getResponse called:', {
+      hasImage: !!imageDataUrl,
+      imageLength: imageDataUrl?.length || 0,
+      messagePreview: userMessage.substring(0, 50)
+    });
+
     const userParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
 
     if (imageDataUrl) {
+      console.log('🖼️ Processing image data for AI...');
       const base64Data = imageDataUrl.split(',')[1];
       const mimeType = imageDataUrl.split(';')[0].split(':')[1];
+      console.log('🖼️ Image details:', { mimeType, base64Length: base64Data?.length || 0 });
       userParts.push(
         { text: userMessage },
         { inlineData: { mimeType, data: base64Data } }
       );
+      console.log('✓ Image added to user parts');
     } else {
+      console.log('ℹ️ No image data, text-only message');
       userParts.push({ text: userMessage });
     }
 
@@ -73,6 +96,11 @@ Current tutoring session focus: Help the student understand and solve their prob
         parts: msg.parts,
       })),
     ];
+
+    console.log('📡 Sending to Gemini API:', {
+      totalMessages: contents.length,
+      lastMessageHasImage: this.conversationHistory[this.conversationHistory.length - 1]?.parts.some(p => p.inlineData)
+    });
 
     const response = await fetch(
       `${this.baseUrl}/models/gemini-2.0-flash-exp:generateContent?key=${this.apiKey}`,
