@@ -77,7 +77,7 @@ export function QuestionInput({ onSubmit, disabled = false, isListening, isSpeak
               placeholder={
                 imagePreview
                   ? 'Add additional context (optional)...'
-                  : 'Type your question or problem here...'
+                  : 'Type here. Press Enter to submit and Shift+Enter for new line.'
               }
               disabled={disabled}
               rows={3}
@@ -131,10 +131,6 @@ export function QuestionInput({ onSubmit, disabled = false, isListening, isSpeak
               </button>
             </div>
           </div>
-        </div>
-
-        <div className="mt-2 text-xs text-slate-500">
-          Press Enter to submit, Shift+Enter for new line
         </div>
       </div>
     </div>
