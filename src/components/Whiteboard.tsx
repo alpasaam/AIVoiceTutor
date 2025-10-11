@@ -217,8 +217,8 @@ useEffect(() => {
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setTool('pencil')}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition ${
-                tool === 'pencil' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition shadow-sm ${
+                tool === 'pencil' ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
               <Pencil className="w-4 h-4" />
