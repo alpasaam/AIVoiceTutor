@@ -129,7 +129,7 @@ export function QuestionInput({ onSubmit, disabled = false, isListening, isSpeak
                   )}
                 </div>
                 <span className="relative z-10 w-full text-center">
-                  {isSpeaking ? 'Voice On' : 'Voice Off'}
+                  {isSpeaking ? 'AI Voice On' : 'AI Text Only'}
                 </span>
               </button>
 
@@ -154,7 +154,7 @@ export function QuestionInput({ onSubmit, disabled = false, isListening, isSpeak
                   )}
                 </div>
                 <span className="relative z-10 w-full text-center">
-                  {isListening ? 'Stop Voice' : 'Start Voice'}
+                  {isListening ? 'Unmute' : 'Mute'}
                 </span>
               </button>
             </div>
