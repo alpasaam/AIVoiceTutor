@@ -1,6 +1,7 @@
 # AI Tutoring Whiteboard — Multimodal Learning Platform
 
 A smart whiteboard that **listens**, **sees**, and **teaches**. Students can draw naturally, talk to the tutor with their voice or text, and get real-time, pedagogically sound guidance—just like a human TA looking over their shoulder.
+[See it in action!](https://ai-whiteboard-voice-r4vc.bolt.host/)
 <img width="1728" height="1117" alt="Screenshot 2025-10-11 at 4 30 24 PM" src="https://github.com/user-attachments/assets/100f9f6f-a3c7-4512-8fe8-1ac0b9a5d064" />
 <img width="1728" height="1117" alt="Screenshot 2025-10-11 at 4 30 47 PM" src="https://github.com/user-attachments/assets/a3d136ae-3e69-4c34-b1d4-010187659e21" />
 <img width="1728" height="1117" alt="Screenshot 2025-10-11 at 4 31 33 PM" src="https://github.com/user-attachments/assets/14084ac8-758e-4b20-982c-252e4b6da581" />
